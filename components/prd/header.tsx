@@ -1,6 +1,8 @@
 "use client";
 
 import { Download } from "lucide-react";
+import { useCallback } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +16,7 @@ export function PRDHeader() {
   const updateTitle = usePRDStore((state) => state.actions.updateTitle);
   const prd = usePRDStore((state) => state.prd);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const markdown = `
 # ${prd.meta.title}
 *Status: ${prd.meta.status} | Version: ${prd.meta.version}*
@@ -64,19 +66,26 @@ ${prd.sections.milestones
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${prd.meta.title.replace(/\s+/g, "-").toLowerCase()}.md`;
-    document.body.appendChild(a);
+    a.download = `${prd.meta.title.replaceAll(/\s+/g, "-").toLowerCase()}.md`;
+    document.body.append(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(url);
-  };
+  }, [prd]);
+
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateTitle(e.target.value);
+    },
+    [updateTitle]
+  );
 
   return (
     <div className="flex items-center justify-between border-b bg-background p-6">
       <div className="mr-8 flex-1">
         <Input
           className="h-auto border-transparent bg-transparent px-0 font-bold text-2xl shadow-none transition-colors hover:border-input focus:border-input"
-          onChange={(e) => updateTitle(e.target.value)}
+          onChange={handleTitleChange}
           value={title}
         />
       </div>

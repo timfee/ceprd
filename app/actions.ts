@@ -1,17 +1,19 @@
 "use server";
 
 import { google } from "@ai-sdk/google";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { z } from "zod";
+
+import { type RequirementSchema } from "@/lib/schemas";
+
 import { CONTEXT_CATEGORIES, PERSONA_ROLES } from "@/lib/repository";
-import type { RequirementSchema } from "@/lib/schemas";
 
 /**
  * Performs research on the competitive landscape.
  * Returns a structured list of competitors with SWOT analysis.
  */
 export async function performCompetitiveResearch(productIdea: string) {
-  const { output } = await generateText({
+  const { object } = await generateObject({
     model: google("gemini-2.0-flash-001"),
     prompt: `
       Research the competitive landscape for this product idea: "${productIdea}".
@@ -32,23 +34,21 @@ export async function performCompetitiveResearch(productIdea: string) {
       
       Return a structured list of competitors.
     `,
-    output: Output.object({
-      schema: z.object({
-        competitors: z.array(
-          z.object({
-            name: z.string(),
-            url: z.string().optional(),
-            strengths: z.array(z.string()),
-            weaknesses: z.array(z.string()),
-            featureGaps: z.array(z.string()),
-            analysis: z.string(),
-          })
-        ),
-      }),
+    schema: z.object({
+      competitors: z.array(
+        z.object({
+          analysis: z.string(),
+          featureGaps: z.array(z.string()),
+          name: z.string(),
+          strengths: z.array(z.string()),
+          url: z.string().optional(),
+          weaknesses: z.array(z.string()),
+        })
+      ),
     }),
   });
 
-  return output.competitors;
+  return object.competitors;
 }
 
 /**
@@ -58,7 +58,7 @@ export async function generateSectionContent(
   section: "tldr" | "background" | "tldr:problem" | "tldr:solution",
   context: { title: string; actors: { name: string; role: string }[] }
 ) {
-  const { output } = await generateText({
+  const { object } = await generateObject({
     model: google("gemini-2.5-flash"),
     prompt: `
       Generate the content for the "${section}" section of a Product Requirements Document (PRD).
@@ -90,25 +90,23 @@ export async function generateSectionContent(
           : ""
       }
     `,
-    output: Output.object({
-      schema: z.object({
-        tldr: z
-          .object({
-            problem: z.string().optional(),
-            solution: z.string().optional(),
-          })
-          .optional(),
-        background: z
-          .object({
-            context: z.string(),
-            marketDrivers: z.array(z.string()),
-          })
-          .optional(),
-      }),
+    schema: z.object({
+      background: z
+        .object({
+          context: z.string(),
+          marketDrivers: z.array(z.string()),
+        })
+        .optional(),
+      tldr: z
+        .object({
+          problem: z.string().optional(),
+          solution: z.string().optional(),
+        })
+        .optional(),
     }),
   });
 
-  return output;
+  return object;
 }
 
 /**
@@ -128,7 +126,7 @@ export async function generateIdeaDumpStructure(
   console.log(
     "🧠 Calling Gemini 2.0 Flash model with chain-of-thought prompting"
   );
-  const { output } = await generateText({
+  const { object } = await generateObject({
     model: google("gemini-2.0-flash-001"),
     prompt: `Analyze this product idea and extract initial structure: "${idea}". 
     
@@ -157,67 +155,65 @@ export async function generateIdeaDumpStructure(
     
     Return a valid JSON object matching the schema.
     `,
-    output: Output.object({
-      schema: z.object({
-        title: z.string(),
-        tldr: z.object({
-          problem: z.string(),
-          solution: z.string(),
-          valueProps: z.array(z.string()),
-        }),
-        background: z.object({
-          context: z.string(),
-          marketDrivers: z.array(z.string()),
-        }),
-        suggestedActors: z.array(
-          z.object({
-            name: z.string(),
-            role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
-            priority: z.enum(["Primary", "Secondary", "Tertiary"]),
-          })
-        ),
-        suggestedTerms: z.array(
-          z.object({
-            term: z.string(),
-            definition: z.string(),
-          })
-        ),
-        suggestedGoals: z.array(
-          z.object({
-            title: z.string(),
-            description: z.string(),
-            priority: z.enum(["Critical", "High", "Medium"]),
-          })
-        ),
-        suggestedRequirements: z.array(
-          z.object({
-            title: z.string(),
-            description: z.string(),
-            priority: z.enum(["P0", "P1", "P2", "P3"]),
-            type: z.enum([
-              "User Story",
-              "System Behavior",
-              "Constraint",
-              "Interface",
-            ]),
-            primaryActorName: z
-              .string()
-              .optional()
-              .describe("Must match a name from suggestedActors"),
-          })
-        ),
-        suggestedMilestones: z.array(
-          z.object({
-            title: z.string(),
-            targetDate: z.string(),
-          })
-        ),
+    schema: z.object({
+      background: z.object({
+        context: z.string(),
+        marketDrivers: z.array(z.string()),
+      }),
+      suggestedActors: z.array(
+        z.object({
+          name: z.string(),
+          priority: z.enum(["Primary", "Secondary", "Tertiary"]),
+          role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
+        })
+      ),
+      suggestedGoals: z.array(
+        z.object({
+          description: z.string(),
+          priority: z.enum(["Critical", "High", "Medium"]),
+          title: z.string(),
+        })
+      ),
+      suggestedMilestones: z.array(
+        z.object({
+          targetDate: z.string(),
+          title: z.string(),
+        })
+      ),
+      suggestedRequirements: z.array(
+        z.object({
+          description: z.string(),
+          primaryActorName: z
+            .string()
+            .optional()
+            .describe("Must match a name from suggestedActors"),
+          priority: z.enum(["P0", "P1", "P2", "P3"]),
+          title: z.string(),
+          type: z.enum([
+            "User Story",
+            "System Behavior",
+            "Constraint",
+            "Interface",
+          ]),
+        })
+      ),
+      suggestedTerms: z.array(
+        z.object({
+          definition: z.string(),
+          term: z.string(),
+        })
+      ),
+      title: z.string(),
+      tldr: z.object({
+        problem: z.string(),
+        solution: z.string(),
+        valueProps: z.array(z.string()),
       }),
     }),
   });
 
   console.log("✅ Gemini response received");
-  console.log("📊 Generated structure:", JSON.stringify(output, null, 2));
+  console.log("📊 Generated structure:", JSON.stringify(object, null, 2));
 
   // Step 2: Analysis complete, structure generated
   progressCallback?.(1, "Project structure defined");
@@ -226,14 +222,14 @@ export async function generateIdeaDumpStructure(
   // Step 3: Processing actors
   progressCallback?.(2, "Identifying key actors and personas");
   console.log("👥 Step 2: Processing actors...");
-  console.log("🎭 Found", output.suggestedActors?.length || 0, "actors");
+  console.log("🎭 Found", object.suggestedActors?.length || 0, "actors");
 
   // Step 4: Processing requirements
   progressCallback?.(3, "Generating functional requirements");
   console.log("📋 Step 3: Processing requirements...");
   console.log(
     "📝 Found",
-    output.suggestedRequirements?.length || 0,
+    object.suggestedRequirements?.length || 0,
     "requirements"
   );
 
@@ -242,20 +238,20 @@ export async function generateIdeaDumpStructure(
   console.log("🎯 Step 4: Processing milestones...");
   console.log(
     "📅 Found",
-    output.suggestedMilestones?.length || 0,
+    object.suggestedMilestones?.length || 0,
     "milestones"
   );
 
   // Step 6: Processing glossary
   progressCallback?.(5, "Setting up terminology glossary");
   console.log("📚 Step 5: Processing glossary...");
-  console.log("📖 Found", output.suggestedTerms?.length || 0, "terms");
+  console.log("📖 Found", object.suggestedTerms?.length || 0, "terms");
 
   // Complete
   progressCallback?.(6, "Draft generation completed!");
   console.log("🎉 Step 6: Draft generation completed!");
 
-  return output;
+  return object;
 }
 
 /**
@@ -266,7 +262,7 @@ export async function identifyPotentialTerms(
   content: string,
   existingTerms: string[]
 ) {
-  const { output } = await generateText({
+  const { object } = await generateObject({
     model: google("gemini-2.0-flash-001"),
     prompt: `
       Analyze the following PRD content and identify 3-5 potential glossary terms that are missing from the current list.
@@ -284,19 +280,17 @@ export async function identifyPotentialTerms(
       
       Return a JSON array of terms.
     `,
-    output: Output.object({
-      schema: z.object({
-        terms: z.array(
-          z.object({
-            term: z.string(),
-            definition: z.string(),
-          })
-        ),
-      }),
+    schema: z.object({
+      terms: z.array(
+        z.object({
+          definition: z.string(),
+          term: z.string(),
+        })
+      ),
     }),
   });
 
-  return output.terms;
+  return object.terms;
 }
 
 /**
@@ -307,7 +301,7 @@ export async function evaluateRequirement(
   req: z.infer<typeof RequirementSchema>,
   contextActors: { id: string; name: string }[]
 ) {
-  const { output } = await generateText({
+  const { object } = await generateObject({
     model: google("gemini-2.0-flash-001"),
     prompt: `
       Act as a strict Product Manager Critic.
@@ -327,15 +321,13 @@ export async function evaluateRequirement(
       
       Return a PASS/FAIL result with a specific suggestion.
     `,
-    output: Output.object({
-      schema: z.object({
-        status: z.enum(["PASS", "FAIL"]),
-        issue: z.string().optional(),
-        suggestion: z.string().optional(),
-        autoFix: z.string().optional(),
-      }),
+    schema: z.object({
+      autoFix: z.string().optional(),
+      issue: z.string().optional(),
+      status: z.enum(["PASS", "FAIL"]),
+      suggestion: z.string().optional(),
     }),
   });
 
-  return output;
+  return object;
 }

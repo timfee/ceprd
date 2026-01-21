@@ -1,7 +1,8 @@
 "use client";
 
+import { type ComponentProps } from "react";
+
 import { GripVertical } from "lucide-react";
-import type { ComponentProps } from "react";
 import {
   Group,
   Panel,

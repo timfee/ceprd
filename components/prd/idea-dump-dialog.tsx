@@ -1,8 +1,9 @@
 "use client";
 
 import { Loader2, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+
 import {
   generateIdeaDumpStructure,
   performCompetitiveResearch,
@@ -40,7 +41,18 @@ export function IdeaDumpDialog() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingText, setLoadingText] = useState("Structuring...");
 
-  const handleGenerate = async () => {
+  const handleSkip = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  const handleIdeaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setIdea(e.target.value);
+    },
+    []
+  );
+
+  const handleGenerate = useCallback(async () => {
     if (!idea.trim()) {
       return;
     }
@@ -66,28 +78,28 @@ export function IdeaDumpDialog() {
         actorMap.set(actor.name, actorId);
 
         addActor({
+          description: "",
           id: actorId,
           name: actor.name,
-          role: actor.role,
           priority: actor.priority,
-          description: "",
+          role: actor.role,
         });
       }
 
       for (const term of structure.suggestedTerms) {
         addTerm({
-          term: term.term,
-          definition: term.definition,
           bannedSynonyms: [],
+          definition: term.definition,
+          term: term.term,
         });
       }
 
       for (const goal of structure.suggestedGoals) {
         addGoal({
-          title: goal.title,
           description: goal.description,
-          priority: goal.priority,
           metrics: [],
+          priority: goal.priority,
+          title: goal.title,
         });
       }
 
@@ -98,26 +110,25 @@ export function IdeaDumpDialog() {
         }
 
         addRequirement({
-          title: req.title,
           description: req.description,
-          priority: req.priority,
-          type: req.type,
-          status: "Draft",
           primaryActorId: actorId,
+          priority: req.priority,
           secondaryActorIds: [],
+          status: "Draft",
+          title: req.title,
+          type: req.type,
         });
       }
 
       for (const milestone of structure.suggestedMilestones) {
         addMilestone({
-          title: milestone.title,
-          targetDate: milestone.targetDate,
-          includedRequirementIds: [],
           exitCriteria: [],
+          includedRequirementIds: [],
+          targetDate: milestone.targetDate,
+          title: milestone.title,
         });
       }
 
-      // 2. Kick off Market Research
       setLoadingText("Researching Competitors...");
       const researchResults = await performCompetitiveResearch(structure.title);
 
@@ -135,7 +146,18 @@ export function IdeaDumpDialog() {
       setIsGenerating(false);
       setLoadingText("Structuring...");
     }
-  };
+  }, [
+    idea,
+    updateTitle,
+    updateTLDR,
+    updateBackground,
+    addActor,
+    addTerm,
+    addGoal,
+    addRequirement,
+    addMilestone,
+    setCompetitors,
+  ]);
 
   return (
     <Dialog onOpenChange={setIsOpen} open={isOpen}>
@@ -151,14 +173,14 @@ export function IdeaDumpDialog() {
         <div className="grid gap-4 py-4">
           <Textarea
             className="min-h-[200px] text-base"
-            onChange={(e) => setIdea(e.target.value)}
+            onChange={handleIdeaChange}
             placeholder="e.g. I want to build a secure file sharing feature for Chrome Enterprise that prevents data exfiltration..."
             value={idea}
           />
         </div>
 
         <DialogFooter>
-          <Button onClick={() => setIsOpen(false)} variant="ghost">
+          <Button onClick={handleSkip} variant="ghost">
             Skip to Editor
           </Button>
           <Button

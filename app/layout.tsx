@@ -1,15 +1,17 @@
-import type { Metadata } from "next";
+import { type Metadata } from "next";
+
 import { Roboto_Flex, Roboto_Mono } from "next/font/google";
+
 import "./globals.css";
 
 const geistSans = Roboto_Flex({
-  variable: "--font-geist-sans",
   subsets: ["latin"],
+  variable: "--font-geist-sans",
 });
 
 const geistMono = Roboto_Mono({
-  variable: "--font-geist-imono",
   subsets: ["latin"],
+  variable: "--font-geist-imono",
 });
 
 export const metadata: Metadata = {

@@ -1,7 +1,8 @@
 "use client";
 
-import { Root } from "@radix-ui/react-separator";
 import type * as React from "react";
+
+import { Root } from "@radix-ui/react-separator";
 
 import { cn } from "@/lib/utils";
 

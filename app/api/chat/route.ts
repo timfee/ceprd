@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
+
 import { generateIdeaDumpStructure } from "@/app/actions";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 
@@ -14,20 +15,47 @@ export async function POST(req: Request) {
 
   console.log("🤖 Starting streamText with Gemini model");
   const result = streamText({
-    model: google("gemini-2.0-flash-001"),
     messages: await convertToModelMessages(messages),
+    model: google("gemini-2.0-flash-001"),
     system: SYSTEM_PROMPT,
     tools: {
+      addActor: tool({
+        description: "Add a new actor/persona to the PRD.",
+        execute: async (args) => await Promise.resolve(args),
+        inputSchema: z.object({
+          description: z.string().optional(),
+          name: z.string(),
+          priority: z.enum(["Primary", "Secondary", "Tertiary"]),
+          role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
+        }),
+      }),
+      addGoal: tool({
+        description: "Add a new project goal.",
+        execute: async (args) => await Promise.resolve(args),
+        inputSchema: z.object({
+          description: z.string(),
+          priority: z.enum(["Critical", "High", "Medium"]),
+          title: z.string(),
+        }),
+      }),
+      addRequirement: tool({
+        description: "Add a new functional requirement.",
+        execute: async (args) => await Promise.resolve(args),
+        inputSchema: z.object({
+          description: z.string(),
+          priority: z.enum(["P0", "P1", "P2", "P3"]),
+          title: z.string(),
+          type: z.enum([
+            "User Story",
+            "System Behavior",
+            "Constraint",
+            "Interface",
+          ]),
+        }),
+      }),
       generateDraft: tool({
         description:
           "Initialize a NEW Product Requirements Document (PRD) from a description. Use this whenever the user asks to 'write', 'create', 'start', or 'generate' a PRD for a specific product idea, regardless of what the product does (e.g., 'a chat bot', 'an email system', 'an admin tool').",
-        inputSchema: z.object({
-          idea: z
-            .string()
-            .describe(
-              "The full description of the product idea provided by the user."
-            ),
-        }),
         execute: async ({ idea }: { idea: string }) => {
           console.log("🛠️ generateDraft tool called with idea:", idea);
           console.log("📊 Starting generateIdeaDumpStructure...");
@@ -42,56 +70,21 @@ export async function POST(req: Request) {
             throw error;
           }
         },
-      }),
-      addActor: tool({
-        description: "Add a new actor/persona to the PRD.",
         inputSchema: z.object({
-          name: z.string(),
-          role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
-          priority: z.enum(["Primary", "Secondary", "Tertiary"]),
-          description: z.string().optional(),
+          idea: z
+            .string()
+            .describe(
+              "The full description of the product idea provided by the user."
+            ),
         }),
-        execute: async (args) => {
-          return await Promise.resolve(args);
-        },
-      }),
-      addRequirement: tool({
-        description: "Add a new functional requirement.",
-        inputSchema: z.object({
-          title: z.string(),
-          description: z.string(),
-          priority: z.enum(["P0", "P1", "P2", "P3"]),
-          type: z.enum([
-            "User Story",
-            "System Behavior",
-            "Constraint",
-            "Interface",
-          ]),
-        }),
-        execute: async (args) => {
-          return await Promise.resolve(args);
-        },
-      }),
-      addGoal: tool({
-        description: "Add a new project goal.",
-        inputSchema: z.object({
-          title: z.string(),
-          description: z.string(),
-          priority: z.enum(["Critical", "High", "Medium"]),
-        }),
-        execute: async (args) => {
-          return await Promise.resolve(args);
-        },
       }),
       updateTLDR: tool({
         description: "Update the TL;DR problem or solution.",
+        execute: async (args) => await Promise.resolve(args),
         inputSchema: z.object({
           problem: z.string().optional(),
           solution: z.string().optional(),
         }),
-        execute: async (args) => {
-          return await Promise.resolve(args);
-        },
       }),
     },
   });

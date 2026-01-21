@@ -1,6 +1,7 @@
 "use client";
 
 import { Bot, Loader2 } from "lucide-react";
+
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 
 interface ToolProgressProps {
@@ -20,7 +21,7 @@ export function ToolProgress({
   message,
 }: ToolProgressProps) {
   const isComplete = state === "output-available";
-// ...
+  // ...
 
   if (isComplete) {
     return (

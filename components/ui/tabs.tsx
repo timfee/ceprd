@@ -1,7 +1,8 @@
 "use client";
 
-import { Content, List, Root, Trigger } from "@radix-ui/react-tabs";
 import type * as React from "react";
+
+import { Content, List, Root, Trigger } from "@radix-ui/react-tabs";
 
 import { cn } from "@/lib/utils";
 

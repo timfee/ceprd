@@ -1,4 +1,4 @@
-import type { Actor, Requirement } from "./schemas";
+import { type Actor, type Requirement } from "./schemas";
 
 export interface ValidationResult {
   status: "PASS" | "FAIL";
@@ -33,8 +33,8 @@ export function validateRequirementRules(
   // Rule 1: Completeness
   if (!(req.title.trim() && req.description.trim())) {
     return {
-      status: "FAIL",
       issue: "Requirement is incomplete.",
+      status: "FAIL",
       suggestion: "Please provide both a title and a description.",
     };
   }
@@ -44,8 +44,8 @@ export function validateRequirementRules(
   for (const word of BANNED_WORDS) {
     if (content.includes(word)) {
       return {
-        status: "FAIL",
         issue: `Contains banned jargon: "${word}"`,
+        status: "FAIL",
         suggestion: `Replace "${word}" with clearer, plain English.`,
       };
     }
@@ -56,8 +56,8 @@ export function validateRequirementRules(
   for (const sentence of sentences) {
     if (sentence.trim().split(WORD_SPLITTER).length > 40) {
       return {
-        status: "FAIL",
         issue: "Sentence is too long (> 40 words).",
+        status: "FAIL",
         suggestion:
           "Break complex sentences into smaller, testable statements.",
       };

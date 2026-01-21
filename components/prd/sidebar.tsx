@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  Book,
-  Check,
-  Loader2,
-  Plus,
-  ScanSearch,
-  Trash2,
-  User,
-  X,
-} from "lucide-react";
-import { useState } from "react";
+import { Book, Loader2, Plus, ScanSearch, Trash2, User } from "lucide-react";
+import { memo, useCallback, useState } from "react";
+
+import { type Actor } from "@/lib/schemas";
+
 import { identifyPotentialTerms } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,9 +18,222 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PERSONA_ROLES } from "@/lib/repository";
-import type { Actor } from "@/lib/schemas";
 import { usePRDStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { type Term } from "@/lib/types";
+
+interface ActorItemProps {
+  actor: Actor;
+  onRemove: (id: string) => void;
+}
+
+const ActorItem = memo(({ actor, onRemove }: ActorItemProps) => {
+  const handleRemove = useCallback(() => {
+    onRemove(actor.id);
+  }, [actor.id, onRemove]);
+
+  return (
+    <div className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50">
+      <div className="overflow-hidden">
+        <div className="truncate font-medium text-sm">{actor.name}</div>
+        {actor.role !== "User" && (
+          <div className="truncate text-muted-foreground text-xs">
+            {actor.role}
+          </div>
+        )}
+      </div>
+      <Button
+        className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+        onClick={handleRemove}
+        size="icon"
+        variant="ghost"
+      >
+        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+      </Button>
+    </div>
+  );
+});
+
+ActorItem.displayName = "ActorItem";
+
+interface AddActorFormProps {
+  onAdd: (name: string, role: string) => void;
+  onCancel: () => void;
+}
+
+const AddActorForm = memo(({ onAdd, onCancel }: AddActorFormProps) => {
+  const [newActorName, setNewActorName] = useState("");
+  const [newActorRole, setNewActorRole] = useState<string>("User");
+
+  const handleAdd = useCallback(() => {
+    onAdd(newActorName, newActorRole);
+  }, [newActorName, newActorRole, onAdd]);
+
+  const handleNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewActorName(e.target.value);
+    },
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        handleAdd();
+      }
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    },
+    [handleAdd, onCancel]
+  );
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-card p-3 shadow-sm">
+      <Input
+        autoFocus
+        className="h-8 text-xs"
+        onChange={handleNameChange}
+        onKeyDown={handleKeyDown}
+        placeholder="Name..."
+        value={newActorName}
+      />
+      <Select onValueChange={setNewActorRole} value={newActorRole}>
+        <SelectTrigger className="h-7 text-xs">
+          <SelectValue placeholder="Role" />
+        </SelectTrigger>
+        <SelectContent>
+          {PERSONA_ROLES.map((role) => (
+            <SelectItem key={role} value={role}>
+              {role}
+            </SelectItem>
+          ))}
+          <SelectItem value="User">User</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="flex justify-end gap-2">
+        <Button
+          className="h-7 text-xs"
+          onClick={onCancel}
+          size="sm"
+          variant="ghost"
+        >
+          Cancel
+        </Button>
+        <Button className="h-7 text-xs" onClick={handleAdd} size="sm">
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+AddActorForm.displayName = "AddActorForm";
+
+interface TermItemProps {
+  term: Term;
+}
+
+const TermItem = memo(({ term }: TermItemProps) => (
+  <div className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50">
+    <div className="overflow-hidden">
+      <div className="truncate font-medium text-sm">{term.term}</div>
+      <div className="truncate text-muted-foreground text-xs">
+        {term.definition}
+      </div>
+    </div>
+  </div>
+));
+
+TermItem.displayName = "TermItem";
+
+interface AddTermFormProps {
+  onAdd: (term: string, definition: string) => void;
+  onCancel: () => void;
+}
+
+const AddTermForm = memo(({ onAdd, onCancel }: AddTermFormProps) => {
+  const [newTermName, setNewTermName] = useState("");
+  const [newTermDefinition, setNewTermDefinition] = useState("");
+
+  const handleAdd = useCallback(() => {
+    onAdd(newTermName, newTermDefinition);
+  }, [newTermName, newTermDefinition, onAdd]);
+
+  const handleNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setNewTermName(e.target.value);
+    },
+    []
+  );
+
+  const handleDefinitionChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setNewTermDefinition(e.target.value);
+    },
+    []
+  );
+
+  const handleNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+      }
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    },
+    [onCancel]
+  );
+
+  const handleDefinitionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && e.metaKey) {
+        // Cmd+Enter to submit
+        handleAdd();
+      }
+      if (e.key === "Escape") {
+        onCancel();
+      }
+    },
+    [handleAdd, onCancel]
+  );
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-card p-3 shadow-sm">
+      <Input
+        autoFocus
+        className="h-8 font-medium text-xs"
+        onChange={handleNameChange}
+        onKeyDown={handleNameKeyDown}
+        placeholder="Term..."
+        value={newTermName}
+      />
+      <Textarea
+        className="min-h-[60px] resize-none text-xs"
+        onChange={handleDefinitionChange}
+        onKeyDown={handleDefinitionKeyDown}
+        placeholder="Definition..."
+        value={newTermDefinition}
+      />
+      <div className="flex justify-end gap-2">
+        <Button
+          className="h-7 text-xs"
+          onClick={onCancel}
+          size="sm"
+          variant="ghost"
+        >
+          Cancel
+        </Button>
+        <Button className="h-7 text-xs" onClick={handleAdd} size="sm">
+          Add Term
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+AddTermForm.displayName = "AddTermForm";
 
 export function PRDSidebar() {
   const actors = usePRDStore((state) => state.prd.context.actors);
@@ -39,45 +246,41 @@ export function PRDSidebar() {
   const prdSections = usePRDStore((state) => state.prd.sections);
 
   const [isAddingActor, setIsAddingActor] = useState(false);
-  const [newActorName, setNewActorName] = useState("");
-  const [newActorRole, setNewActorRole] = useState<string>("User");
-
   const [isAddingTerm, setIsAddingTerm] = useState(false);
-  const [newTermName, setNewTermName] = useState("");
-  const [newTermDefinition, setNewTermDefinition] = useState("");
-
   const [isScanning, setIsScanning] = useState(false);
 
-  const handleAddActor = () => {
-    if (!newActorName.trim()) {
-      return;
-    }
-    addActor({
-      name: newActorName,
-      role: (newActorRole as Actor["role"]) || "User",
-      priority: "Primary",
-      description: "",
-    });
-    setNewActorName("");
-    setNewActorRole("User");
-    setIsAddingActor(false);
-  };
+  const handleAddActor = useCallback(
+    (name: string, role: string) => {
+      if (!name.trim()) {
+        return;
+      }
+      addActor({
+        description: "",
+        name,
+        priority: "Primary",
+        role: (role as Actor["role"]) || "User",
+      });
+      setIsAddingActor(false);
+    },
+    [addActor]
+  );
 
-  const handleAddTerm = () => {
-    if (!newTermName.trim()) {
-      return;
-    }
-    addTerm({
-      term: newTermName,
-      definition: newTermDefinition.trim() || "To be defined...",
-      bannedSynonyms: [],
-    });
-    setNewTermName("");
-    setNewTermDefinition("");
-    setIsAddingTerm(false);
-  };
+  const handleAddTerm = useCallback(
+    (name: string, definition: string) => {
+      if (!name.trim()) {
+        return;
+      }
+      addTerm({
+        bannedSynonyms: [],
+        definition: definition.trim() || "To be defined...",
+        term: name,
+      });
+      setIsAddingTerm(false);
+    },
+    [addTerm]
+  );
 
-  const handleScan = async () => {
+  const handleScan = useCallback(async () => {
     setIsScanning(true);
     try {
       const fullContent = `
@@ -93,23 +296,39 @@ export function PRDSidebar() {
 
       for (const term of newTerms) {
         addTerm({
-          term: term.term,
-          definition: term.definition,
           bannedSynonyms: [],
+          definition: term.definition,
+          term: term.term,
         });
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     } finally {
       setIsScanning(false);
     }
-  };
+  }, [prdSections, terms, addTerm]);
+
+  const handleStartAddingActor = useCallback(() => {
+    setIsAddingActor(true);
+  }, []);
+
+  const handleCancelAddingActor = useCallback(() => {
+    setIsAddingActor(false);
+  }, []);
+
+  const handleStartAddingTerm = useCallback(() => {
+    setIsAddingTerm(true);
+  }, []);
+
+  const handleCancelAddingTerm = useCallback(() => {
+    setIsAddingTerm(false);
+  }, []);
 
   return (
     <div
       className={cn(
         "flex h-full w-full flex-col bg-muted/10 transition-all duration-500",
-        !hasChatStarted && "pointer-events-none blur-sm opacity-10"
+        !hasChatStarted && "pointer-events-none opacity-10 blur-sm"
       )}
     >
       <div className="p-4">
@@ -129,7 +348,7 @@ export function PRDSidebar() {
               </h3>
               <Button
                 className="h-5 w-5"
-                onClick={() => setIsAddingActor(true)}
+                onClick={handleStartAddingActor}
                 size="icon"
                 variant="ghost"
               >
@@ -139,29 +358,11 @@ export function PRDSidebar() {
 
             <div className="space-y-1">
               {actors.map((actor) => (
-                <div
-                  className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50"
+                <ActorItem
+                  actor={actor}
                   key={actor.id}
-                >
-                  <div className="overflow-hidden">
-                    <div className="truncate font-medium text-sm">
-                      {actor.name}
-                    </div>
-                    {actor.role !== "User" && (
-                      <div className="truncate text-muted-foreground text-xs">
-                        {actor.role}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeActor(actor.id)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                  </Button>
-                </div>
+                  onRemove={removeActor}
+                />
               ))}
 
               {actors.length === 0 && !isAddingActor && (
@@ -171,52 +372,10 @@ export function PRDSidebar() {
               )}
 
               {isAddingActor && (
-                <div className="flex flex-col gap-2 rounded-md border bg-card p-3 shadow-sm">
-                  <Input
-                    autoFocus
-                    className="h-8 text-xs"
-                    onChange={(e) => setNewActorName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddActor();
-                      if (e.key === "Escape") setIsAddingActor(false);
-                    }}
-                    placeholder="Name..."
-                    value={newActorName}
-                  />
-                  <Select
-                    onValueChange={setNewActorRole}
-                    value={newActorRole}
-                  >
-                    <SelectTrigger className="h-7 text-xs">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PERSONA_ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="User">User</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      className="h-7 text-xs"
-                      onClick={() => setIsAddingActor(false)}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      className="h-7 text-xs"
-                      onClick={handleAddActor}
-                      size="sm"
-                    >
-                      Add
-                    </Button>
-                  </div>
-                </div>
+                <AddActorForm
+                  onAdd={handleAddActor}
+                  onCancel={handleCancelAddingActor}
+                />
               )}
             </div>
           </div>
@@ -244,7 +403,7 @@ export function PRDSidebar() {
                 </Button>
                 <Button
                   className="h-5 w-5"
-                  onClick={() => setIsAddingTerm(true)}
+                  onClick={handleStartAddingTerm}
                   size="icon"
                   variant="ghost"
                 >
@@ -255,17 +414,7 @@ export function PRDSidebar() {
 
             <div className="space-y-1">
               {terms.map((t) => (
-                <div
-                  className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50"
-                  key={t.id}
-                >
-                  <div className="overflow-hidden">
-                    <div className="truncate font-medium text-sm">{t.term}</div>
-                    <div className="truncate text-muted-foreground text-xs">
-                      {t.definition}
-                    </div>
-                  </div>
-                </div>
+                <TermItem key={t.id} term={t} />
               ))}
 
               {terms.length === 0 && !isAddingTerm && (
@@ -275,49 +424,10 @@ export function PRDSidebar() {
               )}
 
               {isAddingTerm && (
-                <div className="flex flex-col gap-2 rounded-md border bg-card p-3 shadow-sm">
-                  <Input
-                    autoFocus
-                    className="h-8 font-medium text-xs"
-                    onChange={(e) => setNewTermName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        // focus textarea or submit? let's just focus textarea usually, but user might hit enter
-                      }
-                      if (e.key === "Escape") setIsAddingTerm(false);
-                    }}
-                    placeholder="Term..."
-                    value={newTermName}
-                  />
-                  <Textarea
-                    className="min-h-[60px] resize-none text-xs"
-                    onChange={(e) => setNewTermDefinition(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && e.metaKey) handleAddTerm(); // Cmd+Enter to submit
-                      if (e.key === "Escape") setIsAddingTerm(false);
-                    }}
-                    placeholder="Definition..."
-                    value={newTermDefinition}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      className="h-7 text-xs"
-                      onClick={() => setIsAddingTerm(false)}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      className="h-7 text-xs"
-                      onClick={handleAddTerm}
-                      size="sm"
-                    >
-                      Add Term
-                    </Button>
-                  </div>
-                </div>
+                <AddTermForm
+                  onAdd={handleAddTerm}
+                  onCancel={handleCancelAddingTerm}
+                />
               )}
             </div>
           </div>

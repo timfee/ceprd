@@ -1,44 +1,6 @@
-# CEPRD Project Context
+# Ultracite Code Standards
 
-## Project Overview
-
-**CEPRD** is a specialized web application designed for creating and managing Product Requirements Documents (PRDs) with integrated AI assistance. The application features a modern, three-pane interface that allows users to seamlessly navigate PRD sections, edit content, and collaborate with an AI copilot.
-
-### Key Features
-
-- **Structured PRD Editor:** tailored sections for TL;DR, Background, Goals, User Stories/Requirements, Milestones, and Glossary.
-- **AI Copilot:** Integrated chat interface (`app/api/chat/route.ts`) to assist in generating and refining content.
-- **Reactive State:** Client-side state management using `zustand` and `immer` for a responsive editing experience.
-- **Resizable Layout:** A flexible UI built with `react-resizable-panels` to customize the workspace.
-
-## Tech Stack
-
-- **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
-- **Language:** TypeScript
-- **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
-- **UI Components:** [Radix UI](https://www.radix-ui.com/) primitives, [Lucide](https://lucide.dev/) icons.
-- **State Management:** [Zustand](https://github.com/pmndrs/zustand)
-- **Validation:** [Zod](https://zod.dev/)
-- **AI SDK:** [Vercel AI SDK](https://sdk.vercel.ai/docs) (`ai`, `@ai-sdk/google`)
-- **Package Manager:** **Bun** (Strictly enforced)
-
-## Building and Running
-
-**IMPORTANT:** Always use `bun` for package management and script execution.
-
-```bash
-# Install dependencies
-bun install
-
-# Run development server
-bun dev
-
-# Build for production
-bun run build
-
-# Start production server
-bun start
-```
+This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
 
 ## Quick Reference
 
@@ -46,7 +8,7 @@ bun start
 - **Check for issues**: `bun x ultracite check`
 - **Diagnose setup**: `bun x ultracite doctor`
 
-Biome (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
+Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
 
 ---
 
@@ -148,11 +110,11 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Don't use `.only` or `.skip` in committed code
 - Keep test suites reasonably flat - avoid excessive `describe` nesting
 
-## When Biome Can't Help
+## When Oxlint + Oxfmt Can't Help
 
-Biome's linter will catch most issues automatically. Focus your attention on:
+Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attention on:
 
-1. **Business logic correctness** - Biome can't validate your algorithms
+1. **Business logic correctness** - Oxlint + Oxfmt can't validate your algorithms
 2. **Meaningful naming** - Use descriptive names for functions, variables, and types
 3. **Architecture decisions** - Component structure, data flow, and API design
 4. **Edge cases** - Handle boundary conditions and error states
@@ -161,45 +123,4 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 
 ---
 
-Most formatting and common issues are automatically fixed by Biome. Run `bun x ultracite fix` before committing to ensure compliance.
-
-## Development Conventions
-
-### Coding Standards (Ultracite)
-
-This project strictly adheres to **Ultracite** standards using **Biome**.
-
-- **Linting & Formatting:**
-  - Run `bun run lint` to check for issues.
-  - Run `bun run format` (or `bun x ultracite fix`) to auto-format and fix issues.
-- **Core Principles:**
-  - **Type Safety:** Prefer explicit types; avoid `any`; use `as const` for immutables.
-  - **Modern JS/TS:** Use `const`, arrow functions, optional chaining (`?.`), and nullish coalescing (`??`).
-  - **React:** Functional components only; proper hook dependencies; semantic HTML.
-  - **Async:** Always `await` promises; use `try-catch` for error handling.
-
-### Directory Structure
-
-- **`app/`**: Next.js App Router pages and API routes.
-  - `api/chat/`: Endpoint for the AI Copilot.
-  - `page.tsx`: Main application layout (Sidebar - Editor - Copilot).
-- **`components/`**: React components.
-  - `prd/`: Components specific to the PRD editor sections (e.g., `goal-list.tsx`, `requirement-list.tsx`).
-  - `copilot/`: Components for the AI chat interface.
-  - `ui/`: Reusable UI components (buttons, inputs, dialogs), mostly Radix UI wrappers.
-- **`lib/`**: Utility libraries.
-  - `store.ts`: Zustand store definition for PRD state.
-  - `schemas.ts`: Zod schemas defining the PRD data model.
-  - `utils.ts`: General helper functions.
-
-## Key Files to Know
-
-- **`lib/store.ts`**: The heart of the application's state. Contains the `usePRDStore` hook and actions for modifying every part of the PRD (Actors, Goals, Requirements, etc.).
-- **`lib/schemas.ts`**: Defines the shape of the data. Refer to this when adding new fields or validating input.
-- **`AGENTS.md`**: Contains detailed rules for AI agents and coding standards. **Read this if you are an AI assistant.**
-
-## Other things
-
-If you are unsure how to do something, use `gh_grep` to search code examples from GitHub.
-
-When you need to search docs, use `context7` tools.
+Most formatting and common issues are automatically fixed by Oxlint + Oxfmt. Run `bun x ultracite fix` before committing to ensure compliance.

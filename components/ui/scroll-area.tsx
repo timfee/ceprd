@@ -1,5 +1,7 @@
 "use client";
 
+import type * as React from "react";
+
 import {
   Corner,
   Root,
@@ -7,7 +9,6 @@ import {
   Thumb,
   Viewport,
 } from "@radix-ui/react-scroll-area";
-import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 

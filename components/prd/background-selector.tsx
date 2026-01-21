@@ -1,6 +1,8 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { memo, useCallback } from "react";
+
 import {
   Accordion,
   AccordionContent,
@@ -15,6 +17,72 @@ import { CONTEXT_CATEGORIES } from "@/lib/repository";
 import { usePRDStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
+interface DriverCheckboxProps {
+  item: string;
+  isSelected: boolean;
+  onToggle: (item: string) => void;
+}
+
+const DriverCheckbox = memo(
+  ({ item, isSelected, onToggle }: DriverCheckboxProps) => {
+    const handleCheckedChange = useCallback(() => {
+      onToggle(item);
+    }, [item, onToggle]);
+
+    return (
+      <div
+        className={cn(
+          "flex items-start gap-3 rounded-md border p-3 transition-all hover:bg-background",
+          isSelected
+            ? "border-primary/50 bg-primary/5 shadow-sm"
+            : "border-transparent bg-muted/50"
+        )}
+      >
+        <Checkbox
+          checked={isSelected}
+          className="mt-0.5"
+          id={item}
+          onCheckedChange={handleCheckedChange}
+        />
+        <div className="grid gap-1.5 leading-none">
+          <Label
+            className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            htmlFor={item}
+          >
+            {item}
+          </Label>
+        </div>
+      </div>
+    );
+  }
+);
+
+DriverCheckbox.displayName = "DriverCheckbox";
+
+interface DriverBadgeProps {
+  driver: string;
+  onToggle: (driver: string) => void;
+}
+
+const DriverBadge = memo(({ driver, onToggle }: DriverBadgeProps) => {
+  const handleClick = useCallback(() => {
+    onToggle(driver);
+  }, [driver, onToggle]);
+
+  return (
+    <Badge
+      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+      onClick={handleClick}
+      variant="secondary"
+    >
+      {driver}
+      <Check className="ml-1 h-3 w-3" />
+    </Badge>
+  );
+});
+
+DriverBadge.displayName = "DriverBadge";
+
 /**
  * Component for selecting strategic drivers for the project background.
  */
@@ -24,13 +92,16 @@ export function BackgroundSelector() {
   );
   const { updateBackground } = usePRDStore((state) => state.actions);
 
-  const toggleDriver = (driver: string) => {
-    const exists = marketDrivers.includes(driver);
-    const newDrivers = exists
-      ? marketDrivers.filter((d) => d !== driver)
-      : [...marketDrivers, driver];
-    updateBackground({ marketDrivers: newDrivers });
-  };
+  const toggleDriver = useCallback(
+    (driver: string) => {
+      const exists = marketDrivers.includes(driver);
+      const newDrivers = exists
+        ? marketDrivers.filter((d) => d !== driver)
+        : [...marketDrivers, driver];
+      updateBackground({ marketDrivers: newDrivers });
+    },
+    [marketDrivers, updateBackground]
+  );
 
   return (
     <div className="flex h-full flex-col rounded-xl border bg-muted/30">
@@ -63,35 +134,14 @@ export function BackgroundSelector() {
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-4">
                   <div className="grid gap-2">
-                    {category.items.map((item) => {
-                      const isSelected = marketDrivers.includes(item);
-                      return (
-                        <div
-                          className={cn(
-                            "flex items-start gap-3 rounded-md border p-3 transition-all hover:bg-background",
-                            isSelected
-                              ? "border-primary/50 bg-primary/5 shadow-sm"
-                              : "border-transparent bg-muted/50"
-                          )}
-                          key={item}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            className="mt-0.5"
-                            id={item}
-                            onCheckedChange={() => toggleDriver(item)}
-                          />
-                          <div className="grid gap-1.5 leading-none">
-                            <Label
-                              className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              htmlFor={item}
-                            >
-                              {item}
-                            </Label>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {category.items.map((item) => (
+                      <DriverCheckbox
+                        isSelected={marketDrivers.includes(item)}
+                        item={item}
+                        key={item}
+                        onToggle={toggleDriver}
+                      />
+                    ))}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -104,15 +154,11 @@ export function BackgroundSelector() {
         <div className="border-t bg-background p-4">
           <div className="flex flex-wrap gap-2">
             {marketDrivers.map((driver) => (
-              <Badge
-                className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+              <DriverBadge
+                driver={driver}
                 key={driver}
-                onClick={() => toggleDriver(driver)}
-                variant="secondary"
-              >
-                {driver}
-                <Check className="ml-1 h-3 w-3" />
-              </Badge>
+                onToggle={toggleDriver}
+              />
             ))}
           </div>
           <p className="mt-2 text-muted-foreground text-xs">

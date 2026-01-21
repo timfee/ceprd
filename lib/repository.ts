@@ -5,24 +5,24 @@
  */
 export const TLDR_OPTIONS = [
   {
+    defaultContext: "What is the single biggest blocker for users right now?",
     id: "core-problem",
     label: "Identify Core Problem & User Pain",
-    defaultContext: "What is the single biggest blocker for users right now?",
   },
   {
+    defaultContext: "High-level summary of the fix.",
     id: "proposed-solution",
     label: "Introduce Proposed Solution",
-    defaultContext: "High-level summary of the fix.",
   },
   {
+    defaultContext: "Where do we want to be in 12 months?",
     id: "vision-benefits",
     label: "State Vision & Key Benefits",
-    defaultContext: "Where do we want to be in 12 months?",
   },
   {
+    defaultContext: "What security or compliance risk are we addressing?",
     id: "risk-mitigation",
     label: "Mitigate New or Evolving Risk",
-    defaultContext: "What security or compliance risk are we addressing?",
   },
 ] as const;
 
@@ -32,56 +32,56 @@ export const TLDR_OPTIONS = [
 export const CONTEXT_CATEGORIES = [
   {
     id: "evolving-threats",
-    label: "Evolving Threats & Security",
     items: [
       "GenAI leakage",
       "Prompt injection",
       "Expanding device ecosystem",
       "Regulatory mandates (GDPR, HIPAA)",
     ],
+    label: "Evolving Threats & Security",
   },
   {
     id: "competitive-pressures",
-    label: "Competitive Pressures",
     items: ["Competitor launch", "Deal losses", "Pricing disadvantage"],
+    label: "Competitive Pressures",
   },
   {
     id: "strategic-opportunities",
-    label: "Strategic Opportunities",
     items: ["Company OKRs", "Cross-product synergy", "First-mover advantage"],
+    label: "Strategic Opportunities",
   },
   {
     id: "customer-demand",
-    label: "Customer Demand",
     items: ["CAB feedback", "Sales blockers", "Integration requests"],
+    label: "Customer Demand",
   },
   {
     id: "internal-platform",
-    label: "Internal Platform Evolution",
     items: [
       "Architectural limitations",
       "Unifying fragmented systems/UX",
       "Reducing technical debt",
       "Infrastructure modernization",
     ],
+    label: "Internal Platform Evolution",
   },
   {
     id: "data-insights",
-    label: "Data-Driven Insights",
     items: [
       "Underperforming KPIs",
       "User behavior insights",
       "A/B test results",
     ],
+    label: "Data-Driven Insights",
   },
   {
     id: "window-opportunity",
-    label: "Window of Opportunity",
     items: [
       "Time-sensitive market conditions",
       "Resource availability",
       "External deadlines",
     ],
+    label: "Window of Opportunity",
   },
 ] as const;
 

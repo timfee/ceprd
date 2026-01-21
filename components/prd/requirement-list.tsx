@@ -8,7 +8,10 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
+
+import { type Actor, type Requirement } from "@/lib/schemas";
+
 import { evaluateRequirement } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,63 +24,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Actor, Requirement } from "@/lib/schemas";
 import { usePRDStore } from "@/lib/store";
+import { validateRequirementRules } from "@/lib/validate-rules";
 import { cn } from "@/lib/utils";
 
-/**
- * List of functional requirements with AI evaluation capabilities.
- */
-export function RequirementList() {
-  const requirements = usePRDStore((state) => state.prd.sections.requirements);
-  const actors = usePRDStore((state) => state.prd.context.actors);
-  const { addRequirement } = usePRDStore((state) => state.actions);
-
-  const handleAdd = () => {
-    addRequirement({
-      title: "New Requirement",
-      description: "",
-      priority: "P1",
-      status: "Draft",
-      primaryActorId: actors[0]?.id || "",
-      secondaryActorIds: [],
-      type: "User Story",
-    });
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-xl">Functional Requirements</h2>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Add Requirement
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        {requirements.map((req) => (
-          <RequirementItem actors={actors} key={req.id} req={req} />
-        ))}
-
-        {requirements.length === 0 && (
-          <div className="rounded-lg border border-dashed bg-muted/20 py-12 text-center text-muted-foreground">
-            No requirements yet. Click "Add Requirement" to start building.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-import { validateRequirementRules } from "@/lib/validate-rules";
-
-function RequirementItem({
-  req,
-  actors,
-}: {
+interface RequirementItemProps {
   req: Requirement;
   actors: Actor[];
-}) {
+}
+
+const RequirementItem = memo(({ req, actors }: RequirementItemProps) => {
   const { updateRequirement, removeRequirement } = usePRDStore(
     (state) => state.actions
   );
@@ -86,11 +42,11 @@ function RequirementItem({
   >("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const runEval = async () => {
+  const runEval = useCallback(async () => {
     setEvalStatus("loading");
     setFeedback(null);
 
-    // 1. Deterministic Rule Check (Fast, Cheap)
+    // Deterministic Rule Check (Fast, Cheap)
     const ruleResult = validateRequirementRules(req, actors);
     if (ruleResult.status === "FAIL") {
       setEvalStatus("fail");
@@ -98,7 +54,7 @@ function RequirementItem({
       return;
     }
 
-    // 2. AI Critique (Deep, Contextual)
+    // AI Critique (Deep, Contextual)
     try {
       const result = await evaluateRequirement(req, actors);
       const data = result;
@@ -110,11 +66,44 @@ function RequirementItem({
         setEvalStatus("fail");
         setFeedback(data?.issue || data?.suggestion || "Issue found");
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       setEvalStatus("idle");
     }
-  };
+  }, [req, actors]);
+
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateRequirement(req.id, { title: e.target.value });
+    },
+    [req.id, updateRequirement]
+  );
+
+  const handlePriorityChange = useCallback(
+    (v: string) => {
+      const val = v as "P0" | "P1" | "P2" | "P3";
+      updateRequirement(req.id, { priority: val });
+    },
+    [req.id, updateRequirement]
+  );
+
+  const handleActorChange = useCallback(
+    (v: string) => {
+      updateRequirement(req.id, { primaryActorId: v });
+    },
+    [req.id, updateRequirement]
+  );
+
+  const handleDescriptionChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateRequirement(req.id, { description: e.target.value });
+    },
+    [req.id, updateRequirement]
+  );
+
+  const handleRemove = useCallback(() => {
+    removeRequirement(req.id);
+  }, [req.id, removeRequirement]);
 
   let statusColor = "border-l-transparent";
   if (evalStatus === "pass") {
@@ -130,7 +119,7 @@ function RequirementItem({
     buttonColor = "border-red-200 bg-red-50 text-red-600";
   }
 
-  const renderIcon = () => {
+  function renderIcon() {
     if (evalStatus === "loading") {
       return <Loader2 className="mr-2 h-3 w-3 animate-spin" />;
     }
@@ -141,9 +130,9 @@ function RequirementItem({
       return <AlertCircle className="mr-2 h-3 w-3" />;
     }
     return <Sparkles className="mr-2 h-3 w-3 text-purple-500" />;
-  };
+  }
 
-  const renderLabel = () => {
+  function renderLabel() {
     if (evalStatus === "pass") {
       return "Passed";
     }
@@ -151,7 +140,7 @@ function RequirementItem({
       return "Fix Issue";
     }
     return "Review";
-  };
+  }
 
   return (
     <Card className={cn("border-l-4 transition-colors", statusColor)}>
@@ -160,22 +149,12 @@ function RequirementItem({
           <div className="flex-1 space-y-2">
             <Input
               className="h-auto border-0 px-0 font-medium text-lg placeholder:text-muted-foreground/50 focus-visible:ring-0"
-              onChange={(e) =>
-                updateRequirement(req.id, { title: e.target.value })
-              }
+              onChange={handleTitleChange}
               placeholder="Requirement Title (e.g., User Login)"
               value={req.title}
             />
             <div className="flex items-center gap-2">
-              <Select
-                onValueChange={(v) => {
-                  const val = v as "P0" | "P1" | "P2" | "P3";
-                  updateRequirement(req.id, {
-                    priority: val,
-                  });
-                }}
-                value={req.priority}
-              >
+              <Select onValueChange={handlePriorityChange} value={req.priority}>
                 <SelectTrigger className="h-6 w-[80px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -188,9 +167,7 @@ function RequirementItem({
               </Select>
 
               <Select
-                onValueChange={(v) =>
-                  updateRequirement(req.id, { primaryActorId: v })
-                }
+                onValueChange={handleActorChange}
                 value={req.primaryActorId}
               >
                 <SelectTrigger className="h-6 w-[140px] text-xs">
@@ -226,7 +203,7 @@ function RequirementItem({
 
             <Button
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => removeRequirement(req.id)}
+              onClick={handleRemove}
               size="icon"
               variant="ghost"
             >
@@ -237,9 +214,7 @@ function RequirementItem({
 
         <Textarea
           className="min-h-[80px] resize-none text-sm"
-          onChange={(e) =>
-            updateRequirement(req.id, { description: e.target.value })
-          }
+          onChange={handleDescriptionChange}
           placeholder="As a [Actor], I want to [Action], so that [Benefit]..."
           value={req.description}
         />
@@ -254,5 +229,52 @@ function RequirementItem({
         )}
       </CardContent>
     </Card>
+  );
+});
+
+RequirementItem.displayName = "RequirementItem";
+
+/**
+ * List of functional requirements with AI evaluation capabilities.
+ */
+export function RequirementList() {
+  const requirements = usePRDStore((state) => state.prd.sections.requirements);
+  const actors = usePRDStore((state) => state.prd.context.actors);
+  const { addRequirement } = usePRDStore((state) => state.actions);
+
+  const handleAdd = useCallback(() => {
+    addRequirement({
+      description: "",
+      primaryActorId: actors[0]?.id || "",
+      priority: "P1",
+      secondaryActorIds: [],
+      status: "Draft",
+      title: "New Requirement",
+      type: "User Story",
+    });
+  }, [addRequirement, actors]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-xl">Functional Requirements</h2>
+        <Button onClick={handleAdd}>
+          <Plus className="mr-2 h-4 w-4" /> Add Requirement
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        {requirements.map((req) => (
+          <RequirementItem actors={actors} key={req.id} req={req} />
+        ))}
+
+        {requirements.length === 0 && (
+          <div className="rounded-lg border border-dashed bg-muted/20 py-12 text-center text-muted-foreground">
+            No requirements yet. Click &quot;Add Requirement&quot; to start
+            building.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

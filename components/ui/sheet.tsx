@@ -1,5 +1,7 @@
 "use client";
 
+import type * as React from "react";
+
 import {
   Close,
   Content,
@@ -11,7 +13,6 @@ import {
   Trigger,
 } from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
-import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 

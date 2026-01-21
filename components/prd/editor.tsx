@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  ArrowRight,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useState } from "react";
+
 import { generateSectionContent } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { usePRDStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+
 import { BackgroundSelector } from "./background-selector";
 import { CompetitorAnalysis } from "./competitor-analysis";
 import { GoalList } from "./goal-list";
@@ -35,33 +33,69 @@ export function PRDEditor() {
 
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
-  const handleGenerate = async (
-    section: "tldr" | "background" | "tldr:problem" | "tldr:solution"
-  ) => {
-    setIsGenerating(section);
-    try {
-      const result = await generateSectionContent(section, {
-        title,
-        actors,
-      });
+  const handleGenerate = useCallback(
+    async (
+      section: "tldr" | "background" | "tldr:problem" | "tldr:solution"
+    ) => {
+      setIsGenerating(section);
+      try {
+        const result = await generateSectionContent(section, {
+          actors,
+          title,
+        });
 
-      if (result.tldr) {
-        // Only update fields that were returned
-        if (result.tldr.problem) {
-          updateTLDR({ problem: result.tldr.problem });
+        if (result.tldr) {
+          // Only update fields that were returned
+          if (result.tldr.problem) {
+            updateTLDR({ problem: result.tldr.problem });
+          }
+          if (result.tldr.solution) {
+            updateTLDR({ solution: result.tldr.solution });
+          }
+        } else if (section === "background" && result.background) {
+          updateBackground(result.background);
         }
-        if (result.tldr.solution) {
-          updateTLDR({ solution: result.tldr.solution });
-        }
-      } else if (section === "background" && result.background) {
-        updateBackground(result.background);
+      } catch (error) {
+        console.error("Generation failed:", error);
+      } finally {
+        setIsGenerating(null);
       }
-    } catch (error) {
-      console.error("Generation failed:", error);
-    } finally {
-      setIsGenerating(null);
-    }
-  };
+    },
+    [actors, title, updateTLDR, updateBackground]
+  );
+
+  const handleGenerateProblem = useCallback(() => {
+    handleGenerate("tldr:problem");
+  }, [handleGenerate]);
+
+  const handleGenerateSolution = useCallback(() => {
+    handleGenerate("tldr:solution");
+  }, [handleGenerate]);
+
+  const handleGenerateBackground = useCallback(() => {
+    handleGenerate("background");
+  }, [handleGenerate]);
+
+  const handleProblemChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateTLDR({ problem: e.target.value });
+    },
+    [updateTLDR]
+  );
+
+  const handleSolutionChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateTLDR({ solution: e.target.value });
+    },
+    [updateTLDR]
+  );
+
+  const handleContextChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateBackground({ context: e.target.value });
+    },
+    [updateBackground]
+  );
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground">
@@ -70,7 +104,7 @@ export function PRDEditor() {
       <div
         className={cn(
           "flex h-full flex-1 flex-col overflow-hidden transition-all duration-500",
-          !hasChatStarted && "blur-sm opacity-10 pointer-events-none"
+          !hasChatStarted && "pointer-events-none opacity-10 blur-sm"
         )}
       >
         <PRDHeader />
@@ -96,7 +130,7 @@ export function PRDEditor() {
                     </CardTitle>
                     <Button
                       disabled={!!isGenerating}
-                      onClick={() => handleGenerate("tldr:problem")}
+                      onClick={handleGenerateProblem}
                       size="sm"
                       variant="outline"
                     >
@@ -111,7 +145,7 @@ export function PRDEditor() {
                   <CardContent>
                     <Textarea
                       className="min-h-[100px] text-base"
-                      onChange={(e) => updateTLDR({ problem: e.target.value })}
+                      onChange={handleProblemChange}
                       placeholder="What is the single biggest blocker?"
                       value={tldr.problem}
                     />
@@ -125,7 +159,7 @@ export function PRDEditor() {
                     </CardTitle>
                     <Button
                       disabled={!!isGenerating}
-                      onClick={() => handleGenerate("tldr:solution")}
+                      onClick={handleGenerateSolution}
                       size="sm"
                       variant="outline"
                     >
@@ -140,7 +174,7 @@ export function PRDEditor() {
                   <CardContent>
                     <Textarea
                       className="min-h-[100px] text-base"
-                      onChange={(e) => updateTLDR({ solution: e.target.value })}
+                      onChange={handleSolutionChange}
                       placeholder="High-level summary of the fix."
                       value={tldr.solution}
                     />
@@ -159,7 +193,7 @@ export function PRDEditor() {
                       </CardTitle>
                       <Button
                         disabled={!!isGenerating}
-                        onClick={() => handleGenerate("background")}
+                        onClick={handleGenerateBackground}
                         size="sm"
                         variant="outline"
                       >
@@ -174,9 +208,7 @@ export function PRDEditor() {
                     <CardContent className="min-h-0 flex-1">
                       <Textarea
                         className="h-full min-h-[300px] resize-none p-4 text-base leading-relaxed"
-                        onChange={(e) =>
-                          updateBackground({ context: e.target.value })
-                        }
+                        onChange={handleContextChange}
                         placeholder="Tell the story: Why are we building this now? What happens if we don't?"
                         value={background.context}
                       />
@@ -215,7 +247,7 @@ export function PRDEditor() {
       </div>
 
       {!hasChatStarted && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-8">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 p-8 backdrop-blur-sm">
           <div className="flex max-w-md flex-col items-center gap-4 text-center">
             <div className="rounded-full bg-primary/10 p-4">
               <Sparkles className="h-8 w-8 text-primary" />
@@ -224,10 +256,10 @@ export function PRDEditor() {
               Let&apos;s build your PRD
             </h2>
             <p className="text-muted-foreground">
-              Start by chatting with the Copilot on the right. Describe your idea,
-              and we&apos;ll generate the structure for you.
+              Start by chatting with the Copilot on the right. Describe your
+              idea, and we&apos;ll generate the structure for you.
             </p>
-            <div className="flex items-center gap-2 font-medium text-primary text-sm animate-pulse">
+            <div className="flex animate-pulse items-center gap-2 font-medium text-primary text-sm">
               Go to Chat <ArrowRight className="h-4 w-4" />
             </div>
           </div>
