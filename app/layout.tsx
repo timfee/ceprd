@@ -8,7 +8,7 @@ const geistSans = Roboto_Flex({
 });
 
 const geistMono = Roboto_Mono({
-  variable: "--font-geist-mono",
+  variable: "--font-geist-imono",
   subsets: ["latin"],
 });
 
