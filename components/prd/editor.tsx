@@ -70,7 +70,7 @@ export function PRDEditor() {
       <div
         className={cn(
           "flex h-full flex-1 flex-col overflow-hidden transition-all duration-500",
-          !hasChatStarted && "blur-[2px] opacity-30 pointer-events-none"
+          !hasChatStarted && "blur-sm opacity-10 pointer-events-none"
         )}
       >
         <PRDHeader />
@@ -215,7 +215,7 @@ export function PRDEditor() {
       </div>
 
       {!hasChatStarted && (
-        <div className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-8">
           <div className="flex max-w-md flex-col items-center gap-4 text-center">
             <div className="rounded-full bg-primary/10 p-4">
               <Sparkles className="h-8 w-8 text-primary" />

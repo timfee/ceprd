@@ -106,7 +106,12 @@ export function PRDSidebar() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-muted/10">
+    <div
+      className={cn(
+        "flex h-full w-full flex-col bg-muted/10 transition-all duration-500",
+        !hasChatStarted && "pointer-events-none blur-sm opacity-10"
+      )}
+    >
       <div className="p-4">
         <h2 className="font-semibold text-lg">Project Context</h2>
         <p className="text-muted-foreground text-xs">
@@ -114,12 +119,7 @@ export function PRDSidebar() {
         </p>
       </div>
 
-      <ScrollArea
-        className={cn(
-          "flex-1 transition-all duration-500",
-          !hasChatStarted && "pointer-events-none opacity-50 blur-[1px]"
-        )}
-      >
+      <ScrollArea className="flex-1">
         <div className="space-y-6 p-4">
           {/* ACTORS SECTION */}
           <div>
