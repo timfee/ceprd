@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 
 import { Roboto_Flex, Roboto_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 
 import "./globals.css";
 
@@ -15,7 +16,7 @@ const geistMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CEPRD",
+  title: "Product Requirements Copilot",
 };
 
 export default function RootLayout({
@@ -29,6 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );

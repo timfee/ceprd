@@ -106,3 +106,26 @@ export const GOAL_CATEGORIES = [
   "Security & Compliance",
   "Platform Health",
 ] as const;
+
+/**
+ * Common terms that should NOT be added to the glossary or expanded by AI.
+ */
+export const COMMON_TERMS = [
+  "CEP",
+  "Chrome Enterprise Premium",
+  "GCP",
+  "Google Cloud Platform",
+  "TL;DR",
+  "JSON",
+  "HTML",
+  "API",
+  "UI",
+  "UX",
+  "SaaS",
+  "URL",
+  "HTTP",
+  "HTTPS",
+  "SDK",
+  "CLI",
+  "PRD",
+] as const;

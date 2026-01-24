@@ -1,90 +1,80 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { memo, useCallback } from "react";
 
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { CONTEXT_CATEGORIES } from "@/lib/repository";
 import { usePRDStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
-
-interface DriverCheckboxProps {
-  item: string;
-  isSelected: boolean;
-  onToggle: (item: string) => void;
-}
-
-const DriverCheckbox = memo(
-  ({ item, isSelected, onToggle }: DriverCheckboxProps) => {
-    const handleCheckedChange = useCallback(() => {
-      onToggle(item);
-    }, [item, onToggle]);
-
-    return (
-      <div
-        className={cn(
-          "flex items-start gap-3 rounded-md border p-3 transition-all hover:bg-background",
-          isSelected
-            ? "border-primary/50 bg-primary/5 shadow-sm"
-            : "border-transparent bg-muted/50"
-        )}
-      >
-        <Checkbox
-          checked={isSelected}
-          className="mt-0.5"
-          id={item}
-          onCheckedChange={handleCheckedChange}
-        />
-        <div className="grid gap-1.5 leading-none">
-          <Label
-            className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            htmlFor={item}
-          >
-            {item}
-          </Label>
-        </div>
-      </div>
-    );
-  }
-);
-
-DriverCheckbox.displayName = "DriverCheckbox";
 
 interface DriverBadgeProps {
   driver: string;
-  onToggle: (driver: string) => void;
+  onRemove: (driver: string) => void;
 }
 
-const DriverBadge = memo(({ driver, onToggle }: DriverBadgeProps) => {
-  const handleClick = useCallback(() => {
-    onToggle(driver);
-  }, [driver, onToggle]);
+const DriverBadge = memo(({ driver, onRemove }: DriverBadgeProps) => {
+  const handleRemove = useCallback(() => {
+    onRemove(driver);
+  }, [driver, onRemove]);
 
   return (
     <Badge
-      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-      onClick={handleClick}
       variant="secondary"
+      className="gap-1 pr-1 hover:bg-destructive hover:text-destructive-foreground cursor-pointer transition-colors"
+      onClick={handleRemove}
     >
       {driver}
-      <Check className="ml-1 h-3 w-3" />
+      <Check className="h-3 w-3" />
     </Badge>
   );
 });
 
 DriverBadge.displayName = "DriverBadge";
 
+interface DriverMenuItemProps {
+  item: string;
+  isSelected: boolean;
+  onToggle: (item: string) => void;
+}
+
+const DriverMenuItem = memo(
+  ({ item, isSelected, onToggle }: DriverMenuItemProps) => {
+    const handleSelect = useCallback(
+      (e: Event) => {
+        e.preventDefault();
+        onToggle(item);
+      },
+      [item, onToggle]
+    );
+
+    return (
+      <DropdownMenuItem className="text-xs" onSelect={handleSelect}>
+        <div className="flex items-center gap-2 w-full">
+          <div className="flex-1 truncate">{item}</div>
+          {isSelected && <Check className="h-3 w-3 opacity-100" />}
+        </div>
+      </DropdownMenuItem>
+    );
+  }
+);
+
+DriverMenuItem.displayName = "DriverMenuItem";
+
 /**
- * Component for selecting strategic drivers for the project background.
+ * Component for selecting strategic drivers.
+ * Now displayed as an integrated tag list with an "Add Driver" button.
  */
 export function BackgroundSelector() {
   const marketDrivers = usePRDStore(
@@ -104,68 +94,50 @@ export function BackgroundSelector() {
   );
 
   return (
-    <div className="flex h-full flex-col rounded-xl border bg-muted/30">
-      <div className="border-b bg-muted/50 p-4">
-        <h3 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-          Strategic Drivers
-        </h3>
-        <p className="mt-1 text-muted-foreground text-xs">
-          Select the key factors driving this project.
-        </p>
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-4">
-          <Accordion
-            className="w-full space-y-4"
-            defaultValue={["evolving-threats", "competitive-pressures"]}
-            type="multiple"
-          >
-            {CONTEXT_CATEGORIES.map((category) => (
-              <AccordionItem
-                className="border-none"
-                key={category.id}
-                value={category.id}
-              >
-                <AccordionTrigger className="group flex items-center justify-between py-2 font-medium text-sm hover:no-underline">
-                  <span className="transition-colors group-hover:text-primary">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+              <Plus className="h-3 w-3" />
+              Add Strategic Driver
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Select Drivers</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="max-h-[300px] overflow-y-auto">
+              {CONTEXT_CATEGORIES.map((category) => (
+                <DropdownMenuSub key={category.id}>
+                  <DropdownMenuSubTrigger className="text-xs">
                     {category.label}
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="pt-2 pb-4">
-                  <div className="grid gap-2">
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-48">
                     {category.items.map((item) => (
-                      <DriverCheckbox
-                        isSelected={marketDrivers.includes(item)}
-                        item={item}
+                      <DriverMenuItem
                         key={item}
+                        item={item}
+                        isSelected={marketDrivers.includes(item)}
                         onToggle={toggleDriver}
                       />
                     ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      </ScrollArea>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {marketDrivers.length > 0 && (
-        <div className="border-t bg-background p-4">
-          <div className="flex flex-wrap gap-2">
-            {marketDrivers.map((driver) => (
-              <DriverBadge
-                driver={driver}
-                key={driver}
-                onToggle={toggleDriver}
-              />
-            ))}
-          </div>
-          <p className="mt-2 text-muted-foreground text-xs">
-            {marketDrivers.length} drivers selected
-          </p>
-        </div>
-      )}
+        {marketDrivers.length === 0 && (
+          <span className="text-xs text-muted-foreground italic">
+            No strategic drivers selected. Add context to guide the AI.
+          </span>
+        )}
+
+        {marketDrivers.map((driver) => (
+          <DriverBadge key={driver} driver={driver} onRemove={toggleDriver} />
+        ))}
+      </div>
     </div>
   );
 }

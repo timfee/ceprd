@@ -25,6 +25,7 @@ export const CompetitorSchema = z.object({
   featureGaps: z.array(z.string()),
   id: z.string().uuid(),
   name: z.string(),
+  selected: z.boolean().default(false),
   strengths: z.array(z.string()),
   url: z.string().url().optional(),
   weaknesses: z.array(z.string()),
@@ -68,6 +69,13 @@ export const MilestoneSchema = z.object({
   title: z.string(),
 });
 
+export const NarrativeBlockSchema = z.object({
+  content: z.string(),
+  id: z.string().uuid(),
+  title: z.string(),
+  type: z.enum(["text", "driver"]),
+});
+
 // The Master Document
 export const PRDSchema = z.object({
   context: z.object({
@@ -84,6 +92,7 @@ export const PRDSchema = z.object({
   }),
   sections: z.object({
     background: z.object({
+      blocks: z.array(NarrativeBlockSchema).default([]),
       context: z.string(),
       marketDrivers: z.array(z.string()),
     }),
@@ -105,3 +114,4 @@ export type Competitor = z.infer<typeof CompetitorSchema>;
 export type Requirement = z.infer<typeof RequirementSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Milestone = z.infer<typeof MilestoneSchema>;
+export type NarrativeBlock = z.infer<typeof NarrativeBlockSchema>;

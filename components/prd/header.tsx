@@ -2,15 +2,13 @@
 
 import { Download } from "lucide-react";
 import { useCallback } from "react";
+import * as React from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePRDStore } from "@/lib/store";
 
-/**
- * Header component displaying the PRD title and export options.
- */
 export function PRDHeader() {
   const { title, status } = usePRDStore((state) => state.prd.meta);
   const updateTitle = usePRDStore((state) => state.actions.updateTitle);
@@ -84,7 +82,7 @@ ${prd.sections.milestones
     <div className="flex items-center justify-between border-b bg-background p-6">
       <div className="mr-8 flex-1">
         <Input
-          className="h-auto border-transparent bg-transparent px-0 font-bold text-2xl shadow-none transition-colors hover:border-input focus:border-input"
+          className="h-auto border-0 bg-transparent px-0 font-bold text-2xl shadow-none ring-0 ring-offset-0 transition-colors hover:border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           onChange={handleTitleChange}
           value={title}
         />
@@ -93,7 +91,12 @@ ${prd.sections.milestones
         <Badge variant={status === "Final" ? "default" : "secondary"}>
           {status}
         </Badge>
-        <Button onClick={handleExport} size="sm" variant="outline">
+        <Button
+          onClick={handleExport}
+          size="sm"
+          variant="outline"
+          className="cursor-pointer bg-transparent"
+        >
           <Download className="mr-2 h-4 w-4" /> Export
         </Button>
       </div>

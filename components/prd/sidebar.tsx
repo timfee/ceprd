@@ -1,14 +1,29 @@
 "use client";
 
-import { Book, Loader2, Plus, ScanSearch, Trash2, User } from "lucide-react";
+import {
+  Book,
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  ScanSearch,
+  Settings,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 import { memo, useCallback, useState } from "react";
 
-import { type Actor } from "@/lib/schemas";
+import { type Actor, type Term } from "@/lib/schemas";
 
 import { identifyPotentialTerms } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { PERSONA_ROLES } from "@/lib/repository";
+import { usePRDStore } from "@/lib/store";
 import {
   Select,
   SelectContent,
@@ -16,40 +31,141 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { PERSONA_ROLES } from "@/lib/repository";
-import { usePRDStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
-import { type Term } from "@/lib/types";
 
 interface ActorItemProps {
   actor: Actor;
   onRemove: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Actor>) => void;
 }
 
-const ActorItem = memo(({ actor, onRemove }: ActorItemProps) => {
+const ActorItem = memo(({ actor, onRemove, onUpdate }: ActorItemProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(actor.name);
+  const [editRole, setEditRole] = useState(actor.role);
+
   const handleRemove = useCallback(() => {
     onRemove(actor.id);
   }, [actor.id, onRemove]);
 
-  return (
-    <div className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50">
-      <div className="overflow-hidden">
-        <div className="truncate font-medium text-sm">{actor.name}</div>
-        {actor.role !== "User" && (
-          <div className="truncate text-muted-foreground text-xs">
-            {actor.role}
-          </div>
-        )}
+  const handleEdit = useCallback(() => {
+    setIsEditing(true);
+    setEditName(actor.name);
+    setEditRole(actor.role);
+  }, [actor.name, actor.role]);
+
+  const handleSave = useCallback(() => {
+    if (editName.trim()) {
+      onUpdate(actor.id, { name: editName.trim(), role: editRole });
+      setIsEditing(false);
+    }
+  }, [actor.id, editName, editRole, onUpdate]);
+
+  const handleCancel = useCallback(() => {
+    setIsEditing(false);
+    setEditName(actor.name);
+    setEditRole(actor.role);
+  }, [actor.name, actor.role]);
+
+  const handleNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditName(e.target.value);
+    },
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        handleEdit();
+      }
+    },
+    [handleEdit]
+  );
+
+  const handleRoleChange = useCallback((val: string) => {
+    setEditRole(val as Actor["role"]);
+  }, []);
+
+  if (isEditing) {
+    return (
+      <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-2">
+        <Input
+          className="h-8 text-sm"
+          value={editName}
+          onChange={handleNameChange}
+          placeholder="Actor name"
+          autoFocus
+        />
+        <Select onValueChange={handleRoleChange} value={editRole}>
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PERSONA_ROLES.map((role) => (
+              <SelectItem key={role} value={role}>
+                {role}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 flex-1 cursor-pointer"
+            onClick={handleSave}
+          >
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 flex-1 cursor-pointer"
+            onClick={handleCancel}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
-      <Button
-        className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-        onClick={handleRemove}
-        size="icon"
-        variant="ghost"
+    );
+  }
+
+  return (
+    <div className="group flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/50">
+      <button
+        className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left"
+        onClick={handleEdit}
+        onKeyDown={handleKeyDown}
+        type="button"
       >
-        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-      </Button>
+        <User className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1">
+          <span className="break-words">{actor.name}</span>
+          {actor.role !== "User" && (
+            <span className="text-xs text-muted-foreground">
+              ({actor.role})
+            </span>
+          )}
+        </div>
+      </button>
+      <div className="flex shrink-0 gap-1">
+        <Button
+          className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={handleEdit}
+          size="icon"
+          variant="ghost"
+        >
+          <Pencil className="h-3 w-3 text-muted-foreground" />
+        </Button>
+        <Button
+          className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={handleRemove}
+          size="icon"
+          variant="ghost"
+        >
+          <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+        </Button>
+      </div>
     </div>
   );
 });
@@ -76,25 +192,12 @@ const AddActorForm = memo(({ onAdd, onCancel }: AddActorFormProps) => {
     []
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        handleAdd();
-      }
-      if (e.key === "Escape") {
-        onCancel();
-      }
-    },
-    [handleAdd, onCancel]
-  );
-
   return (
     <div className="flex flex-col gap-2 rounded-md border bg-card p-3 shadow-sm">
       <Input
         autoFocus
         className="h-8 text-xs"
         onChange={handleNameChange}
-        onKeyDown={handleKeyDown}
         placeholder="Name..."
         value={newActorName}
       />
@@ -132,18 +235,139 @@ AddActorForm.displayName = "AddActorForm";
 
 interface TermItemProps {
   term: Term;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Term>) => void;
 }
 
-const TermItem = memo(({ term }: TermItemProps) => (
-  <div className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-accent/50">
-    <div className="overflow-hidden">
-      <div className="truncate font-medium text-sm">{term.term}</div>
-      <div className="truncate text-muted-foreground text-xs">
+const TermItem = memo(({ term, onRemove, onUpdate }: TermItemProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTerm, setEditTerm] = useState(term.term);
+  const [editDefinition, setEditDefinition] = useState(term.definition);
+
+  const handleRemove = useCallback(() => {
+    onRemove(term.id);
+  }, [term.id, onRemove]);
+
+  const handleEdit = useCallback(() => {
+    setIsEditing(true);
+    setEditTerm(term.term);
+    setEditDefinition(term.definition);
+  }, [term.term, term.definition]);
+
+  const handleSave = useCallback(() => {
+    if (editTerm.trim() && editDefinition.trim()) {
+      onUpdate(term.id, {
+        definition: editDefinition.trim(),
+        term: editTerm.trim(),
+      });
+      setIsEditing(false);
+    }
+  }, [term.id, editTerm, editDefinition, onUpdate]);
+
+  const handleCancel = useCallback(() => {
+    setIsEditing(false);
+    setEditTerm(term.term);
+    setEditDefinition(term.definition);
+  }, [term.term, term.definition]);
+
+  const handleTermChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setEditTerm(e.target.value);
+    },
+    []
+  );
+
+  const handleDefinitionChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setEditDefinition(e.target.value);
+    },
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        handleEdit();
+      }
+    },
+    [handleEdit]
+  );
+
+  if (isEditing) {
+    return (
+      <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-2">
+        <Input
+          className="h-8 text-sm font-medium"
+          value={editTerm}
+          onChange={handleTermChange}
+          placeholder="Term"
+          autoFocus
+        />
+        <Textarea
+          className="min-h-20 text-sm"
+          value={editDefinition}
+          onChange={handleDefinitionChange}
+          placeholder="Definition"
+        />
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 flex-1 cursor-pointer"
+            onClick={handleSave}
+          >
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 flex-1 cursor-pointer"
+            onClick={handleCancel}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex flex-col gap-0.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50">
+      <div className="flex items-start justify-between gap-2">
+        <button
+          className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left font-medium"
+          onClick={handleEdit}
+          onKeyDown={handleKeyDown}
+          type="button"
+        >
+          <Book className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="break-words">{term.term}</span>
+        </button>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={handleEdit}
+            size="icon"
+            variant="ghost"
+          >
+            <Pencil className="h-3 w-3 text-muted-foreground" />
+          </Button>
+          <Button
+            className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={handleRemove}
+            size="icon"
+            variant="ghost"
+          >
+            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+          </Button>
+        </div>
+      </div>
+      <div className="break-words pl-5 text-xs text-muted-foreground">
         {term.definition}
       </div>
     </div>
-  </div>
-));
+  );
+});
 
 TermItem.displayName = "TermItem";
 
@@ -167,36 +391,11 @@ const AddTermForm = memo(({ onAdd, onCancel }: AddTermFormProps) => {
     []
   );
 
-  const handleDefinitionChange = useCallback(
+  const handleDefChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setNewTermDefinition(e.target.value);
     },
     []
-  );
-
-  const handleNameKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-      }
-      if (e.key === "Escape") {
-        onCancel();
-      }
-    },
-    [onCancel]
-  );
-
-  const handleDefinitionKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && e.metaKey) {
-        // Cmd+Enter to submit
-        handleAdd();
-      }
-      if (e.key === "Escape") {
-        onCancel();
-      }
-    },
-    [handleAdd, onCancel]
   );
 
   return (
@@ -205,14 +404,12 @@ const AddTermForm = memo(({ onAdd, onCancel }: AddTermFormProps) => {
         autoFocus
         className="h-8 font-medium text-xs"
         onChange={handleNameChange}
-        onKeyDown={handleNameKeyDown}
         placeholder="Term..."
         value={newTermName}
       />
       <Textarea
         className="min-h-[60px] resize-none text-xs"
-        onChange={handleDefinitionChange}
-        onKeyDown={handleDefinitionKeyDown}
+        onChange={handleDefChange}
         placeholder="Definition..."
         value={newTermDefinition}
       />
@@ -238,11 +435,14 @@ AddTermForm.displayName = "AddTermForm";
 export function PRDSidebar() {
   const actors = usePRDStore((state) => state.prd.context.actors);
   const terms = usePRDStore((state) => state.prd.context.glossary);
-  const hasChatStarted = usePRDStore((state) => state.hasChatStarted);
-  const { addActor, removeActor, addTerm } = usePRDStore(
-    (state) => state.actions
-  );
-  // Get content for scanning
+  const {
+    addActor,
+    removeActor,
+    addTerm,
+    removeTerm,
+    updateActor,
+    updateTerm,
+  } = usePRDStore((state) => state.actions);
   const prdSections = usePRDStore((state) => state.prd.sections);
 
   const [isAddingActor, setIsAddingActor] = useState(false);
@@ -308,47 +508,30 @@ export function PRDSidebar() {
     }
   }, [prdSections, terms, addTerm]);
 
-  const handleStartAddingActor = useCallback(() => {
-    setIsAddingActor(true);
-  }, []);
-
-  const handleCancelAddingActor = useCallback(() => {
-    setIsAddingActor(false);
-  }, []);
-
-  const handleStartAddingTerm = useCallback(() => {
-    setIsAddingTerm(true);
-  }, []);
-
-  const handleCancelAddingTerm = useCallback(() => {
-    setIsAddingTerm(false);
-  }, []);
+  const toggleAddingActor = useCallback(() => setIsAddingActor(true), []);
+  const cancelAddingActor = useCallback(() => setIsAddingActor(false), []);
+  const toggleAddingTerm = useCallback(() => setIsAddingTerm(true), []);
+  const cancelAddingTerm = useCallback(() => setIsAddingTerm(false), []);
 
   return (
-    <div
-      className={cn(
-        "flex h-full w-full flex-col bg-muted/10 transition-all duration-500",
-        !hasChatStarted && "pointer-events-none opacity-10 blur-sm"
-      )}
-    >
-      <div className="p-4">
-        <h2 className="font-semibold text-lg">Project Context</h2>
-        <p className="text-muted-foreground text-xs">
-          Define actors and glossary terms.
-        </p>
+    <div className="flex h-full w-80 flex-col border-r bg-background">
+      <div className="flex items-center justify-between border-b p-4">
+        <div className="flex items-center gap-2">
+          <Settings className="h-4 w-4" />
+          <span className="font-semibold text-sm">Project Context</span>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="space-y-6 p-4">
-          {/* ACTORS SECTION */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase">
-                <User className="h-3 w-3" /> Actors
-              </h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Actors
+              </span>
               <Button
                 className="h-5 w-5"
-                onClick={handleStartAddingActor}
+                onClick={toggleAddingActor}
                 size="icon"
                 variant="ghost"
               >
@@ -362,37 +545,31 @@ export function PRDSidebar() {
                   actor={actor}
                   key={actor.id}
                   onRemove={removeActor}
+                  onUpdate={updateActor}
                 />
               ))}
-
-              {actors.length === 0 && !isAddingActor && (
-                <div className="rounded-md border border-dashed py-3 text-center text-muted-foreground text-xs">
-                  No actors defined.
-                </div>
-              )}
-
               {isAddingActor && (
                 <AddActorForm
                   onAdd={handleAddActor}
-                  onCancel={handleCancelAddingActor}
+                  onCancel={cancelAddingActor}
                 />
               )}
             </div>
           </div>
 
-          {/* GLOSSARY SECTION */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase">
-                <Book className="h-3 w-3" /> Glossary
-              </h3>
-              <div className="flex gap-1">
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Glossary
+              </span>
+              <div className="flex items-center gap-1">
                 <Button
                   className="h-5 w-5"
                   disabled={isScanning}
                   onClick={handleScan}
                   size="icon"
-                  title="Scan PRD for new terms"
                   variant="ghost"
                 >
                   {isScanning ? (
@@ -403,7 +580,7 @@ export function PRDSidebar() {
                 </Button>
                 <Button
                   className="h-5 w-5"
-                  onClick={handleStartAddingTerm}
+                  onClick={toggleAddingTerm}
                   size="icon"
                   variant="ghost"
                 >
@@ -413,20 +590,18 @@ export function PRDSidebar() {
             </div>
 
             <div className="space-y-1">
-              {terms.map((t) => (
-                <TermItem key={t.id} term={t} />
+              {terms.map((term) => (
+                <TermItem
+                  key={term.id}
+                  term={term}
+                  onRemove={removeTerm}
+                  onUpdate={updateTerm}
+                />
               ))}
-
-              {terms.length === 0 && !isAddingTerm && (
-                <div className="rounded-md border border-dashed py-3 text-center text-muted-foreground text-xs">
-                  No terms defined.
-                </div>
-              )}
-
               {isAddingTerm && (
                 <AddTermForm
                   onAdd={handleAddTerm}
-                  onCancel={handleCancelAddingTerm}
+                  onCancel={cancelAddingTerm}
                 />
               )}
             </div>

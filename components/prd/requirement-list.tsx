@@ -1,20 +1,32 @@
 "use client";
 
 import {
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  Plus,
-  Sparkles,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  GripVertical,
+  MoreHorizontal,
+  PlusCircle,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import { type Actor, type Requirement } from "@/lib/schemas";
 
-import { evaluateRequirement } from "@/app/actions";
+import {
+  evaluateRequirement,
+  generateRequirementDescription,
+  refineText,
+} from "@/app/actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,218 +37,334 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { usePRDStore } from "@/lib/store";
-import { validateRequirementRules } from "@/lib/validate-rules";
 import { cn } from "@/lib/utils";
+import { type AIInstruction, AIToolbar } from "./ai-toolbar";
+import { Badge } from "@/components/ui/badge";
+
+function getPriorityColor(p: string) {
+  switch (p) {
+    case "P0": {
+      return "bg-red-100 text-red-700 hover:bg-red-200 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900/50";
+    }
+    case "P1": {
+      return "bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900/50";
+    }
+    case "P2": {
+      return "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900/50";
+    }
+    case "P3": {
+      return "bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
+    }
+    default: {
+      return "bg-slate-100 text-slate-700";
+    }
+  }
+}
 
 interface RequirementItemProps {
   req: Requirement;
+  index: number;
+  isLast: boolean;
   actors: Actor[];
 }
 
-const RequirementItem = memo(({ req, actors }: RequirementItemProps) => {
-  const { updateRequirement, removeRequirement } = usePRDStore(
-    (state) => state.actions
-  );
-  const [evalStatus, setEvalStatus] = useState<
-    "idle" | "loading" | "pass" | "fail"
-  >("idle");
-  const [feedback, setFeedback] = useState<string | null>(null);
+const RequirementItem = memo(
+  ({ req, index, isLast, actors }: RequirementItemProps) => {
+    const { updateRequirement, removeRequirement, moveRequirement } =
+      usePRDStore((state) => state.actions);
 
-  const runEval = useCallback(async () => {
-    setEvalStatus("loading");
-    setFeedback(null);
+    // Context selectors
+    const background = usePRDStore(
+      (state) => state.prd.sections.background.context
+    );
+    const goals = usePRDStore((state) => state.prd.sections.goals);
+    const competitors = usePRDStore((state) => state.prd.context.competitors);
+    const glossary = usePRDStore((state) => state.prd.context.glossary);
 
-    // Deterministic Rule Check (Fast, Cheap)
-    const ruleResult = validateRequirementRules(req, actors);
-    if (ruleResult.status === "FAIL") {
-      setEvalStatus("fail");
-      setFeedback(`${ruleResult.issue} ${ruleResult.suggestion}`);
-      return;
-    }
+    const [isExpanded, setIsExpanded] = useState(
+      !req.title && !req.description
+    );
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // AI Critique (Deep, Contextual)
-    try {
-      const result = await evaluateRequirement(req, actors);
-      const data = result;
+    const handleTitleChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        updateRequirement(req.id, { title: e.target.value });
+      },
+      [req.id, updateRequirement]
+    );
 
-      if (data?.status === "PASS") {
-        setEvalStatus("pass");
-        setFeedback(null);
-      } else {
-        setEvalStatus("fail");
-        setFeedback(data?.issue || data?.suggestion || "Issue found");
+    const handlePriorityCycle = useCallback(() => {
+      const priorities: Requirement["priority"][] = ["P0", "P1", "P2", "P3"];
+      const currentIndex = priorities.indexOf(req.priority);
+      const nextIndex = (currentIndex + 1) % priorities.length;
+      updateRequirement(req.id, { priority: priorities[nextIndex] });
+    }, [req.id, req.priority, updateRequirement]);
+
+    const handleStatusChange = useCallback(
+      (value: string) => {
+        updateRequirement(req.id, { status: value as Requirement["status"] });
+      },
+      [req.id, updateRequirement]
+    );
+
+    const handleActorChange = useCallback(
+      (value: string) => {
+        updateRequirement(req.id, { primaryActorId: value });
+      },
+      [req.id, updateRequirement]
+    );
+
+    const handleDescriptionChange = useCallback(
+      (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        updateRequirement(req.id, { description: e.target.value });
+      },
+      [req.id, updateRequirement]
+    );
+
+    const handleMoveUp = useCallback(() => {
+      moveRequirement(req.id, "up");
+    }, [req.id, moveRequirement]);
+
+    const handleMoveDown = useCallback(() => {
+      moveRequirement(req.id, "down");
+    }, [req.id, moveRequirement]);
+
+    const handleRemove = useCallback(() => {
+      removeRequirement(req.id);
+    }, [req.id, removeRequirement]);
+
+    // AI Handlers
+    const handleGenerateDescription = useCallback(async () => {
+      if (!req.title) {
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      setEvalStatus("idle");
-    }
-  }, [req, actors]);
+      setIsGenerating(true);
+      try {
+        // Collect Active Context
+        const activeCompetitors = competitors.filter((c) => c.selected);
+        const competitorContext = activeCompetitors.flatMap((c) =>
+          c.featureGaps.map((gap) => `Competitor ${c.name} has gap: ${gap}`)
+        );
+        const activeGoals = goals.map((g) => g.title);
+        const activeGlossary = glossary.map((t) => t.term);
 
-  const handleTitleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      updateRequirement(req.id, { title: e.target.value });
-    },
-    [req.id, updateRequirement]
-  );
+        const description = await generateRequirementDescription(
+          req.title,
+          req.type,
+          actors,
+          {
+            background,
+            competitorContext:
+              competitorContext.length > 0 ? competitorContext : undefined,
+            glossary: activeGlossary.length > 0 ? activeGlossary : undefined,
+            goals: activeGoals.length > 0 ? activeGoals : undefined,
+          }
+        );
+        updateRequirement(req.id, { description });
+        toast.success("Description generated!");
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to generate description");
+      } finally {
+        setIsGenerating(false);
+      }
+    }, [
+      req.title,
+      req.type,
+      req.id,
+      actors,
+      background,
+      goals,
+      competitors,
+      glossary,
+      updateRequirement,
+    ]);
 
-  const handlePriorityChange = useCallback(
-    (v: string) => {
-      const val = v as "P0" | "P1" | "P2" | "P3";
-      updateRequirement(req.id, { priority: val });
-    },
-    [req.id, updateRequirement]
-  );
+    const handleGenerate = req.description
+      ? undefined
+      : handleGenerateDescription;
 
-  const handleActorChange = useCallback(
-    (v: string) => {
-      updateRequirement(req.id, { primaryActorId: v });
-    },
-    [req.id, updateRequirement]
-  );
+    const handleExpand = useCallback(() => {
+      setIsExpanded(true);
+    }, []);
 
-  const handleDescriptionChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      updateRequirement(req.id, { description: e.target.value });
-    },
-    [req.id, updateRequirement]
-  );
+    const activeContextCount = competitors.filter((c) => c.selected).length;
 
-  const handleRemove = useCallback(() => {
-    removeRequirement(req.id);
-  }, [req.id, removeRequirement]);
-
-  let statusColor = "border-l-transparent";
-  if (evalStatus === "pass") {
-    statusColor = "border-l-green-500";
-  } else if (evalStatus === "fail") {
-    statusColor = "border-l-red-500";
-  }
-
-  let buttonColor = "";
-  if (evalStatus === "pass") {
-    buttonColor = "border-green-200 bg-green-50 text-green-600";
-  } else if (evalStatus === "fail") {
-    buttonColor = "border-red-200 bg-red-50 text-red-600";
-  }
-
-  function renderIcon() {
-    if (evalStatus === "loading") {
-      return <Loader2 className="mr-2 h-3 w-3 animate-spin" />;
-    }
-    if (evalStatus === "pass") {
-      return <CheckCircle2 className="mr-2 h-3 w-3" />;
-    }
-    if (evalStatus === "fail") {
-      return <AlertCircle className="mr-2 h-3 w-3" />;
-    }
-    return <Sparkles className="mr-2 h-3 w-3 text-purple-500" />;
-  }
-
-  function renderLabel() {
-    if (evalStatus === "pass") {
-      return "Passed";
-    }
-    if (evalStatus === "fail") {
-      return "Fix Issue";
-    }
-    return "Review";
-  }
-
-  return (
-    <Card className={cn("border-l-4 transition-colors", statusColor)}>
-      <CardContent className="space-y-4 p-4">
-        <div className="flex items-start gap-4">
-          <div className="flex-1 space-y-2">
-            <Input
-              className="h-auto border-0 px-0 font-medium text-lg placeholder:text-muted-foreground/50 focus-visible:ring-0"
-              onChange={handleTitleChange}
-              placeholder="Requirement Title (e.g., User Login)"
-              value={req.title}
-            />
-            <div className="flex items-center gap-2">
-              <Select onValueChange={handlePriorityChange} value={req.priority}>
-                <SelectTrigger className="h-6 w-[80px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="P0">P0</SelectItem>
-                  <SelectItem value="P1">P1</SelectItem>
-                  <SelectItem value="P2">P2</SelectItem>
-                  <SelectItem value="P3">P3</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                onValueChange={handleActorChange}
-                value={req.primaryActorId}
-              >
-                <SelectTrigger className="h-6 w-[140px] text-xs">
-                  <SelectValue placeholder="Select Actor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {actors.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                  {actors.length === 0 && (
-                    <SelectItem disabled value="none">
-                      No Actors Defined
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+    return (
+      <div className="group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm">
+        {/* Header Row */}
+        <div className="flex h-12 items-center gap-3 px-3">
+          <div className="flex w-6 flex-col items-center justify-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
+              disabled={index === 0}
+              onClick={handleMoveUp}
+            >
+              <ChevronUp className="h-3 w-3" />
+            </Button>
+            <GripVertical className="h-3 w-3 text-muted-foreground/50" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
+              disabled={isLast}
+              onClick={handleMoveDown}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </Button>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Button
-              className={cn("w-32", buttonColor)}
-              disabled={evalStatus === "loading"}
-              onClick={runEval}
-              size="sm"
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+            {index + 1}
+          </div>
+
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Input
+              className="h-8 border-transparent bg-transparent px-0 text-sm font-medium focus-visible:ring-0 placeholder:text-muted-foreground/50"
+              value={req.title}
+              onChange={handleTitleChange}
+              placeholder="Requirement Title (e.g. User Login)"
+              onFocus={handleExpand}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge
               variant="outline"
+              className={cn(
+                "cursor-pointer font-normal",
+                getPriorityColor(req.priority)
+              )}
+              onClick={handlePriorityCycle}
             >
-              {renderIcon()}
-              {renderLabel()}
-            </Button>
+              {req.priority}
+            </Badge>
+
+            <Select onValueChange={handleStatusChange} value={req.status}>
+              <SelectTrigger className="h-8" id={`status-${req.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Draft">Draft</SelectItem>
+                <SelectItem value="Proposed">Proposed</SelectItem>
+                <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Deprecated">Deprecated</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={handleRemove}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Requirement
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Button
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={handleRemove}
-              size="icon"
               variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={handleExpandToggle}
             >
-              <Trash2 className="h-4 w-4" />
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isExpanded && "rotate-90"
+                )}
+              />
             </Button>
           </div>
         </div>
 
-        <Textarea
-          className="min-h-[80px] resize-none text-sm"
-          onChange={handleDescriptionChange}
-          placeholder="As a [Actor], I want to [Action], so that [Benefit]..."
-          value={req.description}
-        />
+        {/* Expanded Body */}
+        {isExpanded && (
+          <div className="border-t bg-muted/10 p-4 animate-in slide-in-from-top-1 duration-200">
+            <div className="grid gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor={`desc-${req.id}`}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Description / Acceptance Criteria
+                    </label>
+                    <Select
+                      value={req.primaryActorId}
+                      onValueChange={handleActorChange}
+                    >
+                      <SelectTrigger className="h-6 w-[140px] text-xs border-transparent bg-transparent hover:bg-muted/50">
+                        <SelectValue placeholder="Assign Actor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {actors.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                        {actors.length === 0 && (
+                          <SelectItem value="none" disabled>
+                            No Actors
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        {feedback && (
-          <div className="flex items-start gap-2 rounded-md border border-red-100 bg-red-50 p-3 text-red-700 text-xs">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="flex-1">
-              <span className="font-semibold">Critique:</span> {feedback}
+                  <div className="flex items-center gap-2">
+                    {activeContextCount > 0 && (
+                      <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-sm">
+                        Using {activeContextCount} active competitor
+                        {activeContextCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    <AIToolbar
+                      generateLabel="Draft with AI"
+                      hasContent={!!req.description}
+                      isGenerating={isGenerating}
+                      onGenerate={handleGenerate}
+                    />
+                  </div>
+                </div>
+                <Textarea
+                  id={`desc-${req.id}`}
+                  className="min-h-[120px] resize-y bg-background text-sm leading-relaxed"
+                  value={req.description}
+                  onChange={handleDescriptionChange}
+                  placeholder="As a [User], I want to [Action] so that [Benefit]..."
+                />
+              </div>
+
+              {feedback && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/30 dark:bg-amber-900/20 dark:text-amber-400">
+                  <span className="font-semibold">AI Feedback:</span> {feedback}
+                </div>
+              )}
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-});
+      </div>
+    );
+  }
+);
 
 RequirementItem.displayName = "RequirementItem";
 
-/**
- * List of functional requirements with AI evaluation capabilities.
- */
 export function RequirementList() {
   const requirements = usePRDStore((state) => state.prd.sections.requirements);
   const actors = usePRDStore((state) => state.prd.context.actors);
@@ -246,35 +374,49 @@ export function RequirementList() {
     addRequirement({
       description: "",
       primaryActorId: actors[0]?.id || "",
-      priority: "P1",
+      priority: "P2",
       secondaryActorIds: [],
       status: "Draft",
-      title: "New Requirement",
+      title: "",
       type: "User Story",
     });
   }, [addRequirement, actors]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-xl">Functional Requirements</h2>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Add Requirement
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Requirements</h2>
+          <p className="text-sm text-muted-foreground">
+            Define functional specifications and acceptance criteria.
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="sm" className="gap-1.5">
+          <PlusCircle className="h-4 w-4" />
+          Add Requirement
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {requirements.map((req) => (
-          <RequirementItem actors={actors} key={req.id} req={req} />
-        ))}
-
-        {requirements.length === 0 && (
-          <div className="rounded-lg border border-dashed bg-muted/20 py-12 text-center text-muted-foreground">
-            No requirements yet. Click &quot;Add Requirement&quot; to start
-            building.
-          </div>
-        )}
-      </div>
+      {requirements.length === 0 ? (
+        <EmptyState
+          actionLabel="Create your first requirement"
+          description="Start adding requirements to define your product scope."
+          onAction={handleAdd}
+          title="No requirements yet"
+        />
+      ) : (
+        <div className="space-y-3">
+          {requirements.map((req, index) => (
+            <RequirementItem
+              key={req.id}
+              req={req}
+              index={index}
+              isLast={index === requirements.length - 1}
+              actors={actors}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

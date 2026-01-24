@@ -27,7 +27,7 @@ export function ToolProgress({
     return (
       <div className="flex items-center gap-2 rounded border border-green-100 bg-green-50 p-2 text-green-600 text-xs">
         <Bot className="h-3 w-3" />
-        <span className="font-medium">✓ {toolName} completed successfully</span>
+        <span className="font-medium">{toolName} completed successfully</span>
       </div>
     );
   }

@@ -1,20 +1,39 @@
 "use server";
 
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 
 import { type RequirementSchema } from "@/lib/schemas";
+import { HUMANIZER_PROMPT } from "@/lib/prompts";
 
-import { CONTEXT_CATEGORIES, PERSONA_ROLES } from "@/lib/repository";
+import {
+  COMMON_TERMS,
+  CONTEXT_CATEGORIES,
+  PERSONA_ROLES,
+} from "@/lib/repository";
 
 /**
  * Performs research on the competitive landscape.
  * Returns a structured list of competitors with SWOT analysis.
  */
 export async function performCompetitiveResearch(productIdea: string) {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google("gemini-2.0-flash-001"),
+    output: Output.object({
+      schema: z.object({
+        competitors: z.array(
+          z.object({
+            analysis: z.string(),
+            featureGaps: z.array(z.string()),
+            name: z.string(),
+            strengths: z.array(z.string()),
+            url: z.string().optional(),
+            weaknesses: z.array(z.string()),
+          })
+        ),
+      }),
+    }),
     prompt: `
       Research the competitive landscape for this product idea: "${productIdea}".
       
@@ -34,21 +53,9 @@ export async function performCompetitiveResearch(productIdea: string) {
       
       Return a structured list of competitors.
     `,
-    schema: z.object({
-      competitors: z.array(
-        z.object({
-          analysis: z.string(),
-          featureGaps: z.array(z.string()),
-          name: z.string(),
-          strengths: z.array(z.string()),
-          url: z.string().optional(),
-          weaknesses: z.array(z.string()),
-        })
-      ),
-    }),
   });
 
-  return object.competitors;
+  return output.competitors;
 }
 
 /**
@@ -56,16 +63,52 @@ export async function performCompetitiveResearch(productIdea: string) {
  */
 export async function generateSectionContent(
   section: "tldr" | "background" | "tldr:problem" | "tldr:solution",
-  context: { title: string; actors: { name: string; role: string }[] }
+  context: { title: string; actors: { name: string; role: string }[] },
+  instruction?: "Make longer" | "Make shorter" | "Rewrite" | "Remove AI Slop"
 ) {
-  const { object } = await generateObject({
+  const isHumanizer = instruction === "Remove AI Slop";
+  const systemPrompt = isHumanizer ? HUMANIZER_PROMPT : undefined;
+
+  const { output } = await generateText({
     model: google("gemini-2.5-flash"),
+    output: Output.object({
+      schema: z.object({
+        background: z
+          .object({
+            context: z.string(),
+            marketDrivers: z.array(z.string()),
+          })
+          .optional(),
+        tldr: z
+          .object({
+            problem: z.string().optional(),
+            solution: z.string().optional(),
+          })
+          .optional(),
+      }),
+    }),
     prompt: `
-      Generate the content for the "${section}" section of a Product Requirements Document (PRD).
+      ${
+        isHumanizer
+          ? `Humanize the content for the "${section}" section of the PRD.`
+          : `Generate the content for the "${section}" section of a Product Requirements Document (PRD).`
+      }
       
       Project Title: "${context.title}"
       Key Actors: ${context.actors.map((a) => `${a.name} (${a.role})`).join(", ")}
       
+      ${
+        instruction && !isHumanizer
+          ? `Refinement Instruction: "${instruction}" - Please follow this instruction strictly when generating the content.`
+          : ""
+      }
+      
+      ${
+        isHumanizer
+          ? `Please rewrite the existing content (or generate new content if none exists) following the Humanizer guidelines to remove AI patterns and make it sound authentic.`
+          : ""
+      }
+
       Instructions:
       ${
         section === "tldr" ||
@@ -76,12 +119,12 @@ export async function generateSectionContent(
       }
       ${
         section === "tldr:problem"
-          ? `- ONLY generate the 'problem' field (2-3 sentences on core pain).`
+          ? `- ONLY generate the 'problem' field (write ~2 paragraphs detailing the core pain points and impact).`
           : ""
       }
       ${
         section === "tldr:solution"
-          ? `- ONLY generate the 'solution' field (high-level approach).`
+          ? `- ONLY generate the 'solution' field (write ~2 paragraphs detailing the approach and key benefits).`
           : ""
       }
       ${
@@ -90,23 +133,10 @@ export async function generateSectionContent(
           : ""
       }
     `,
-    schema: z.object({
-      background: z
-        .object({
-          context: z.string(),
-          marketDrivers: z.array(z.string()),
-        })
-        .optional(),
-      tldr: z
-        .object({
-          problem: z.string().optional(),
-          solution: z.string().optional(),
-        })
-        .optional(),
-    }),
+    system: systemPrompt,
   });
 
-  return object;
+  return output;
 }
 
 /**
@@ -117,17 +147,69 @@ export async function generateIdeaDumpStructure(
   idea: string,
   progressCallback?: (step: number, message: string) => void
 ) {
-  console.log("🎯 generateIdeaDumpStructure started with idea:", idea);
+  console.log("generateIdeaDumpStructure started with idea:", idea);
 
-  // Step 1: Start analysis
   progressCallback?.(0, "Analyzing product idea...");
-  console.log("📖 Step 0: Starting analysis with chain-of-thought...");
 
-  console.log(
-    "🧠 Calling Gemini 2.0 Flash model with chain-of-thought prompting"
-  );
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google("gemini-2.0-flash-001"),
+    output: Output.object({
+      schema: z.object({
+        background: z.object({
+          context: z.string(),
+          marketDrivers: z.array(z.string()),
+        }),
+        suggestedActors: z.array(
+          z.object({
+            name: z.string(),
+            priority: z.enum(["Primary", "Secondary", "Tertiary"]),
+            role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
+          })
+        ),
+        suggestedGoals: z.array(
+          z.object({
+            description: z.string(),
+            priority: z.enum(["Critical", "High", "Medium"]),
+            title: z.string(),
+          })
+        ),
+        suggestedMilestones: z.array(
+          z.object({
+            targetDate: z.string(),
+            title: z.string(),
+          })
+        ),
+        suggestedRequirements: z.array(
+          z.object({
+            description: z.string(),
+            primaryActorName: z
+              .string()
+              .optional()
+              .describe("Must match a name from suggestedActors"),
+            priority: z.enum(["P0", "P1", "P2", "P3"]),
+            title: z.string(),
+            type: z.enum([
+              "User Story",
+              "System Behavior",
+              "Constraint",
+              "Interface",
+            ]),
+          })
+        ),
+        suggestedTerms: z.array(
+          z.object({
+            definition: z.string(),
+            term: z.string(),
+          })
+        ),
+        title: z.string(),
+        tldr: z.object({
+          problem: z.string(),
+          solution: z.string(),
+          valueProps: z.array(z.string()),
+        }),
+      }),
+    }),
     prompt: `Analyze this product idea and extract initial structure: "${idea}". 
     
     IMPORTANT: Think step-by-step and show your reasoning process:
@@ -141,9 +223,17 @@ export async function generateIdeaDumpStructure(
     5. Plan realistic project milestones
     6. Extract relevant technical terminology and acronyms
     
+    CRITICAL QUALITY CHECK:
+    - Before finalizing the output, review all generated text fields (problem, solution, descriptions).
+    - Ensure they do NOT sound like generic AI fluff. 
+    - Use the following Humanizer principles to evaluate your own output:
+    ${HUMANIZER_PROMPT}
+    - If you detect any "AI Slop" patterns (like "testament to", "delve", "landscape", "fostering"), REWRITE them to be more direct, human, and professional.
+
     For Suggested Terms:
-    - Identify key technical acronyms (e.g. DLP, ZTNA, CEP) and specific product names.
+    - Identify key technical acronyms (e.g. ZTNA, DLP) and specific product names.
     - Bias towards Google / Chrome Enterprise Premium terminology.
+    - EXCLUDE these common terms: ${COMMON_TERMS.join(", ")}.
 
     For Background:
     - Provide initial Context and Market Drivers.
@@ -155,103 +245,18 @@ export async function generateIdeaDumpStructure(
     
     Return a valid JSON object matching the schema.
     `,
-    schema: z.object({
-      background: z.object({
-        context: z.string(),
-        marketDrivers: z.array(z.string()),
-      }),
-      suggestedActors: z.array(
-        z.object({
-          name: z.string(),
-          priority: z.enum(["Primary", "Secondary", "Tertiary"]),
-          role: z.enum(["User", "Admin", "System", "Buyer", "Stakeholder"]),
-        })
-      ),
-      suggestedGoals: z.array(
-        z.object({
-          description: z.string(),
-          priority: z.enum(["Critical", "High", "Medium"]),
-          title: z.string(),
-        })
-      ),
-      suggestedMilestones: z.array(
-        z.object({
-          targetDate: z.string(),
-          title: z.string(),
-        })
-      ),
-      suggestedRequirements: z.array(
-        z.object({
-          description: z.string(),
-          primaryActorName: z
-            .string()
-            .optional()
-            .describe("Must match a name from suggestedActors"),
-          priority: z.enum(["P0", "P1", "P2", "P3"]),
-          title: z.string(),
-          type: z.enum([
-            "User Story",
-            "System Behavior",
-            "Constraint",
-            "Interface",
-          ]),
-        })
-      ),
-      suggestedTerms: z.array(
-        z.object({
-          definition: z.string(),
-          term: z.string(),
-        })
-      ),
-      title: z.string(),
-      tldr: z.object({
-        problem: z.string(),
-        solution: z.string(),
-        valueProps: z.array(z.string()),
-      }),
-    }),
   });
 
-  console.log("✅ Gemini response received");
-  console.log("📊 Generated structure:", JSON.stringify(object, null, 2));
+  console.log("Gemini response received");
 
-  // Step 2: Analysis complete, structure generated
   progressCallback?.(1, "Project structure defined");
-  console.log("📖 Step 1: Project structure defined");
-
-  // Step 3: Processing actors
   progressCallback?.(2, "Identifying key actors and personas");
-  console.log("👥 Step 2: Processing actors...");
-  console.log("🎭 Found", object.suggestedActors?.length || 0, "actors");
-
-  // Step 4: Processing requirements
   progressCallback?.(3, "Generating functional requirements");
-  console.log("📋 Step 3: Processing requirements...");
-  console.log(
-    "📝 Found",
-    object.suggestedRequirements?.length || 0,
-    "requirements"
-  );
-
-  // Step 5: Processing milestones
   progressCallback?.(4, "Creating project milestones");
-  console.log("🎯 Step 4: Processing milestones...");
-  console.log(
-    "📅 Found",
-    object.suggestedMilestones?.length || 0,
-    "milestones"
-  );
-
-  // Step 6: Processing glossary
   progressCallback?.(5, "Setting up terminology glossary");
-  console.log("📚 Step 5: Processing glossary...");
-  console.log("📖 Found", object.suggestedTerms?.length || 0, "terms");
-
-  // Complete
   progressCallback?.(6, "Draft generation completed!");
-  console.log("🎉 Step 6: Draft generation completed!");
 
-  return object;
+  return output;
 }
 
 /**
@@ -262,8 +267,18 @@ export async function identifyPotentialTerms(
   content: string,
   existingTerms: string[]
 ) {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google("gemini-2.0-flash-001"),
+    output: Output.object({
+      schema: z.object({
+        terms: z.array(
+          z.object({
+            definition: z.string(),
+            term: z.string(),
+          })
+        ),
+      }),
+    }),
     prompt: `
       Analyze the following PRD content and identify 3-5 potential glossary terms that are missing from the current list.
       
@@ -273,36 +288,108 @@ export async function identifyPotentialTerms(
       "${content}"
       
       Guidelines:
-      1. Focus on technical terms, acronyms (e.g., CEP, DLP, CEC), or product-specific concepts.
+      1. Focus on technical terms, acronyms (e.g. ZTNA, DLP), or product-specific concepts.
       2. Bias towards official Google / Chrome Enterprise Premium terminology.
       3. CRITICAL: Do NOT suggest generic words or headers like "User", "Admin", "TL;DR", "Background", "Requirements", "Goals", "Overview".
-      4. Provide a concise definition for each term.
+      4. DO NOT suggest these common terms: ${COMMON_TERMS.join(", ")}.
+      5. Provide a concise definition for each term.
       
       Return a JSON array of terms.
     `,
-    schema: z.object({
-      terms: z.array(
-        z.object({
-          definition: z.string(),
-          term: z.string(),
-        })
-      ),
-    }),
   });
 
-  return object.terms;
+  return output.terms;
 }
 
 /**
- * Evaluates a single requirement against the project context (Actors).
- * Returns a pass/fail status and critique.
+ * Generates a requirement description based on the title and context.
  */
+export async function generateRequirementDescription(
+  title: string,
+  type: string,
+  actors: { name: string; role: string }[],
+  context?: {
+    background?: string;
+    competitorContext?: string[];
+    goals?: string[];
+    glossary?: string[];
+  }
+) {
+  const { output } = await generateText({
+    model: google("gemini-2.5-flash"),
+    prompt: `
+      Write a professional, concise product requirement description for a feature titled: "${title}".
+      Type: ${type}
+      
+      Primary Actors available: ${actors.map((a) => a.name).join(", ")}
+      
+      ${context?.background ? `Project Background: "${context.background}"` : ""}
+      ${
+        context?.competitorContext?.length
+          ? `Competitive Insights to Consider:\n- ${context.competitorContext.join("\n- ")}`
+          : ""
+      }
+      ${
+        context?.goals?.length
+          ? `Align with these Project Goals:\n- ${context.goals.join("\n- ")}`
+          : ""
+      }
+      ${
+        context?.glossary?.length
+          ? `Use these Glossary Terms correctly:\n- ${context.glossary.join(", ")}`
+          : ""
+      }
+
+      Instructions:
+      - Format as a user story ("As a [Actor], I want to...") OR a system behavior ("The system shall...").
+      - Be specific and testable.
+      - Explicitly reference the competitive gap or project goal if relevant.
+      - Keep it under 4 sentences.
+    `,
+  });
+
+  return output;
+}
+
+/**
+ * Refines any text based on an instruction.
+ */
+export async function refineText(
+  text: string,
+  instruction: string,
+  context?: string
+) {
+  const { output } = await generateText({
+    model: google("gemini-2.5-flash"),
+    prompt: `
+      You are an expert editor.
+      
+      Original Text: "${text}"
+      
+      Instruction: ${instruction}
+      ${context ? `Context: ${context}` : ""}
+      
+      Return ONLY the refined text. Do not add conversational filler.
+    `,
+  });
+
+  return output;
+}
+
 export async function evaluateRequirement(
   req: z.infer<typeof RequirementSchema>,
   contextActors: { id: string; name: string }[]
 ) {
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google("gemini-2.0-flash-001"),
+    output: Output.object({
+      schema: z.object({
+        autoFix: z.string().optional(),
+        issue: z.string().optional(),
+        status: z.enum(["PASS", "FAIL"]),
+        suggestion: z.string().optional(),
+      }),
+    }),
     prompt: `
       Act as a strict Product Manager Critic.
       
@@ -321,13 +408,7 @@ export async function evaluateRequirement(
       
       Return a PASS/FAIL result with a specific suggestion.
     `,
-    schema: z.object({
-      autoFix: z.string().optional(),
-      issue: z.string().optional(),
-      status: z.enum(["PASS", "FAIL"]),
-      suggestion: z.string().optional(),
-    }),
   });
 
-  return object;
+  return output;
 }

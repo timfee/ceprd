@@ -3,7 +3,7 @@
 import { type UIToolInvocation } from "ai";
 
 import { useChat } from "@ai-sdk/react";
-import { Bot, Check, Send, X } from "lucide-react";
+import { Check, CheckCircle2, Loader2, Send, Sparkles, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -16,16 +16,14 @@ import {
 import { type DraftStructure, type ProposedChange } from "@/lib/types";
 
 import { performCompetitiveResearch } from "@/app/actions";
-import { ToolProgress } from "@/components/copilot/tool-progress";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { ToolProgress } from "@/components/copilot/tool-progress";
 import { type PRDState, usePRDStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 type ExtendedToolInvocation = UIToolInvocation<{
   input: unknown;
@@ -36,7 +34,6 @@ function useToolProgress(toolName: string, state: string) {
   const [progressInfo, setProgressInfo] = useState({
     message: "Initializing...",
     step: 0,
-    timestamp: Date.now(),
   });
 
   useEffect(() => {
@@ -44,41 +41,25 @@ function useToolProgress(toolName: string, state: string) {
       toolName === "generateDraft" &&
       (state === "input-available" || state === "input-streaming")
     ) {
-      const progressSteps = [
-        { delay: 1000, message: "Analyzing product idea...", step: 0 },
-        { delay: 3000, message: "Defining project scope", step: 1 },
-        {
-          delay: 5000,
-          message: "Identifying key actors and personas",
-          step: 2,
-        },
-        { delay: 8000, message: "Generating functional requirements", step: 3 },
-        { delay: 12_000, message: "Creating project milestones", step: 4 },
-        { delay: 15_000, message: "Setting up terminology glossary", step: 5 },
+      const timers: NodeJS.Timeout[] = [
+        setTimeout(
+          () => setProgressInfo({ message: "Analyzing...", step: 1 }),
+          1000
+        ),
+        setTimeout(
+          () => setProgressInfo({ message: "Drafting...", step: 3 }),
+          3000
+        ),
+        setTimeout(
+          () => setProgressInfo({ message: "Refining...", step: 5 }),
+          6000
+        ),
       ];
-
-      const timers: NodeJS.Timeout[] = [];
-      for (const { step, message, delay } of progressSteps) {
-        const timer = setTimeout(() => {
-          setProgressInfo({ message, step, timestamp: Date.now() });
-        }, delay);
-        timers.push(timer);
-      }
       return () => {
         for (const t of timers) {
           clearTimeout(t);
         }
       };
-    }
-  }, [toolName, state]);
-
-  useEffect(() => {
-    if (toolName === "generateDraft" && state === "output-available") {
-      setProgressInfo({
-        message: "Draft generation completed!",
-        step: 6,
-        timestamp: Date.now(),
-      });
     }
   }, [toolName, state]);
 
@@ -126,10 +107,13 @@ async function applyDraftStructure(
     }
 
     // Trigger research side-effect
+    console.log("Triggering performCompetitiveResearch for:", structure.title);
     const results = await performCompetitiveResearch(structure.title);
+    console.log("Competitive research results received:", results.length);
     const hydrated = results.map((c) => ({
       ...c,
       id: uuidv4(),
+      selected: false,
       url: c.url || "",
     }));
     actions.setCompetitors(hydrated);
@@ -170,64 +154,56 @@ interface ProposedChangeCardProps {
 
 const ProposedChangeCard = memo(
   ({ output, toolName, onApprove, onReject }: ProposedChangeCardProps) => (
-    <Card className="my-2 w-full max-w-sm overflow-hidden border-purple-200 text-left dark:border-purple-900">
-      <CardHeader className="bg-purple-50 px-4 py-3 dark:bg-purple-900/20">
+    <Card className="my-2 w-full overflow-hidden border-ai-border bg-card shadow-none">
+      <div className="border-b border-ai-border bg-ai-muted/30 px-4 py-2">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-purple-700 text-xs uppercase tracking-wider dark:text-purple-400">
+          <span className="font-semibold text-[10px] uppercase tracking-wider text-ai">
             Proposed Change
           </span>
-          <span className="font-mono text-muted-foreground text-xs">
+          <span className="font-mono text-[10px] text-muted-foreground">
             {toolName}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-2 p-4 text-sm">
+      </div>
+      <div className="space-y-2 p-4 text-sm">
         {output.title && (
           <div className="font-medium text-foreground">{output.title}</div>
         )}
         {output.description && (
-          <div className="text-muted-foreground text-xs leading-relaxed">
+          <div className="text-xs leading-relaxed text-muted-foreground">
             {output.description}
           </div>
         )}
         {output.problem && (
-          <div>
-            <span className="font-semibold text-xs">Problem: </span>
+          <div className="text-xs">
+            <span className="font-semibold">Problem: </span>
             {output.problem}
           </div>
         )}
         {output.solution && (
-          <div>
-            <span className="font-semibold text-xs">Solution: </span>
+          <div className="text-xs">
+            <span className="font-semibold">Solution: </span>
             {output.solution}
           </div>
         )}
-        {output.name && (
-          <div className="font-medium text-foreground">{output.name}</div>
-        )}
-        {output.role && (
-          <div className="text-muted-foreground text-xs">
-            Role: {output.role}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex gap-2 border-t p-2">
+      </div>
+      <div className="flex gap-2 border-t border-ai-border p-2">
         <Button
-          className="h-8 flex-1 text-xs"
+          className="h-7 flex-1 text-xs"
           onClick={onReject}
           variant="ghost"
         >
           Reject
         </Button>
         <Button
-          className="h-8 flex-1 bg-purple-600 text-xs hover:bg-purple-700"
+          className="h-7 flex-1 bg-ai text-ai-foreground hover:bg-ai/90 text-xs"
           onClick={onApprove}
           size="sm"
         >
           <Check className="mr-1 h-3 w-3" />
           Approve
         </Button>
-      </CardFooter>
+      </div>
     </Card>
   )
 );
@@ -307,7 +283,6 @@ const ToolHandler = memo(
       );
     }
 
-    // Confirmation UI for Structural Changes
     if (
       ["addRequirement", "addGoal", "addActor", "updateTLDR"].includes(
         toolInvocation.toolName
@@ -315,10 +290,12 @@ const ToolHandler = memo(
     ) {
       if (toolInvocation.state !== "output-available") {
         return (
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-2 text-muted-foreground text-xs">
-            <Bot className="h-3 w-3 animate-pulse" />
-            Preparing proposal...
-          </div>
+          <Card className="border-ai-border bg-ai-muted/50 p-3 shadow-none">
+            <div className="flex items-center gap-2 text-xs text-ai">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Preparing proposal...
+            </div>
+          </Card>
         );
       }
 
@@ -326,16 +303,16 @@ const ToolHandler = memo(
 
       if (status === "approved") {
         return (
-          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-2 text-green-700 text-xs dark:border-green-900 dark:bg-green-900/20 dark:text-green-400">
-            <Check className="h-3 w-3" />
-            Change approved and applied.
+          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-2 text-xs text-green-700 dark:border-green-900 dark:bg-green-900/20 dark:text-green-400">
+            <CheckCircle2 className="h-3 w-3" />
+            Change applied.
           </div>
         );
       }
 
       if (status === "rejected") {
         return (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 text-xs dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
             <X className="h-3 w-3" />
             Change rejected.
           </div>
@@ -369,18 +346,14 @@ export function CopilotSidebar() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Sync chat state
   useEffect(() => {
     if (messages.length > 0 && !hasChatStarted) {
       setHasChatStarted(true);
     }
   }, [messages, hasChatStarted, setHasChatStarted]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    if (messages && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleInputChange = useCallback(
@@ -391,8 +364,10 @@ export function CopilotSidebar() {
   );
 
   const handleSend = useCallback(
-    async (e: React.SyntheticEvent) => {
-      e.preventDefault();
+    async (e?: React.SyntheticEvent) => {
+      if (e) {
+        e.preventDefault();
+      }
       if (!input?.trim()) {
         return;
       }
@@ -406,89 +381,113 @@ export function CopilotSidebar() {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
-        // We can't await here directly without making this async, but handleSend handles the async part.
-        // We need to prevent default behavior of enter (newline)
-        // Note: handleSend prevents default.
-        // We just need to trigger the event. But React synthetic events might be tricky.
-        // Actually handleSend takes SyntheticEvent and calls preventDefault.
-        // We can just call handleSend(e).
-        handleSend(e);
+        e.preventDefault();
+        handleSend();
       }
     },
     [handleSend]
   );
 
   return (
-    <div className="flex h-full flex-col bg-background">
-      <div className="p-4">
-        <h2 className="flex items-center gap-2 font-semibold text-lg">
-          <Bot className="h-5 w-5 text-purple-600" />
-          Copilot
-        </h2>
-        <p className="text-muted-foreground text-xs">Chat to build your PRD.</p>
+    <div className="flex h-full flex-col border-l border-border bg-background">
+      <div className="flex h-14 items-center gap-3 border-b border-border bg-background px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ai-muted">
+          <Sparkles className="h-4 w-4 text-ai" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium leading-none">AI Copilot</span>
+          <span className="text-xs text-muted-foreground">
+            Always here to help
+          </span>
+        </div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4" ref={scrollRef}>
-        {messages.map((m) => (
-          <div
-            className={`flex flex-col gap-2 ${
-              m.role === "user" ? "items-end" : "items-start"
-            }`}
-            key={m.id}
-          >
+      <ScrollArea className="flex-1 px-4">
+        <div className="space-y-6 py-4">
+          {messages.map((m) => (
             <div
-              className={`max-w-[90%] rounded-2xl p-3 text-sm ${
-                m.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground"
+              className={`flex flex-col gap-2 ${
+                m.role === "user" ? "items-end" : "items-start"
               }`}
+              key={m.id}
             >
-              {m.parts?.map((part, i) =>
-                // biome-ignore lint/suspicious/noArrayIndexKey: parts do not have unique IDs
-                part.type === "text" ? (
-                  <span key={i + part.text.slice(0, 5)}>{part.text}</span>
-                ) : null
-              )}
+              <div className="flex max-w-full items-start gap-3">
+                {m.role === "assistant" && (
+                  <Avatar className="mt-1 h-8 w-8">
+                    <div className="flex h-full w-full items-center justify-center bg-ai-muted">
+                      <Sparkles className="h-4 w-4 text-ai" />
+                    </div>
+                  </Avatar>
+                )}
+
+                <div
+                  className={cn(
+                    "flex flex-col gap-2",
+                    m.role === "user" ? "items-end" : "items-start"
+                  )}
+                >
+                  {m.parts?.map((part, i) =>
+                    part.type === "text" ? (
+                      <div
+                        className={cn(
+                          "max-w-[90%] rounded-2xl px-4 py-2 text-sm leading-relaxed",
+                          m.role === "user"
+                            ? "rounded-tr-none bg-primary text-primary-foreground"
+                            : "bg-transparent p-0 text-foreground"
+                        )}
+                        key={i + part.text.slice(0, 5)}
+                      >
+                        {part.text}
+                      </div>
+                    ) : null
+                  )}
+
+                  {m.parts
+                    ?.filter((part) => part.type.startsWith("tool-"))
+                    .map((part) => {
+                      const toolName = part.type.replace("tool-", "");
+                      const invocation: ExtendedToolInvocation = {
+                        ...part,
+                        toolName,
+                      } as unknown as ExtendedToolInvocation;
+
+                      return (
+                        <div
+                          className="w-full max-w-sm"
+                          key={invocation.toolCallId}
+                        >
+                          <ToolHandler toolInvocation={invocation} />
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
             </div>
+          ))}
+          <div ref={scrollRef} />
+        </div>
+      </ScrollArea>
 
-            {/* Render Tool Invocations as System Activities */}
-            {m.parts
-              ?.filter((part) => part.type.startsWith("tool-"))
-              .map((part) => {
-                const toolName = part.type.replace("tool-", "");
-                // Construct a typed invocation object
-                const invocation: ExtendedToolInvocation = {
-                  ...part,
-                  toolName,
-                } as unknown as ExtendedToolInvocation;
-
-                return (
-                  <ToolHandler
-                    key={invocation.toolCallId}
-                    toolInvocation={invocation}
-                  />
-                );
-              })}
-          </div>
-        ))}
-      </div>
-
-      <form className="flex gap-2 p-4" ref={formRef}>
-        <Textarea
-          className="min-h-[44px] flex-1 resize-none rounded-xl"
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask me to update the PRD or refine requirements..."
-          value={input || ""}
-        />
-        <Button
-          className="h-[44px] w-[44px] rounded-xl"
-          onClick={handleSend}
-          size="icon"
-          type="button"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+      <form className="border-t border-border bg-background p-4" ref={formRef}>
+        <div className="flex gap-2">
+          <Textarea
+            className="min-h-[60px] resize-none bg-muted/30 text-sm leading-relaxed transition-colors focus:bg-background"
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me to update the PRD or refine requirements..."
+            value={input || ""}
+          />
+          <Button
+            className="h-[60px] w-[60px] flex-shrink-0"
+            disabled={!input.trim()}
+            onClick={handleSend}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Press Enter to send, Shift+Enter for new line
+        </p>
       </form>
     </div>
   );

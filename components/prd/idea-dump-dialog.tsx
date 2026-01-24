@@ -1,7 +1,8 @@
 "use client";
 
-import { Loader2, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
 import {
@@ -20,10 +21,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { usePRDStore } from "@/lib/store";
 
+interface IdeaDumpDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
 /**
  * Dialog for capturing raw ideas and converting them into a structured PRD.
  */
-export function IdeaDumpDialog() {
+export function IdeaDumpDialog({ open, onOpenChange }: IdeaDumpDialogProps) {
   const {
     updateTitle,
     updateTLDR,
@@ -36,14 +42,13 @@ export function IdeaDumpDialog() {
     setCompetitors,
   } = usePRDStore((state) => state.actions);
 
-  const [isOpen, setIsOpen] = useState(false);
   const [idea, setIdea] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingText, setLoadingText] = useState("Structuring...");
 
   const handleSkip = useCallback(() => {
-    setIsOpen(false);
-  }, []);
+    onOpenChange(false);
+  }, [onOpenChange]);
 
   const handleIdeaChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -135,14 +140,23 @@ export function IdeaDumpDialog() {
       const hydratedCompetitors = researchResults.map((c) => ({
         ...c,
         id: uuidv4(),
+        selected: false,
         url: c.url || "",
       }));
       setCompetitors(hydratedCompetitors);
 
-      setIsOpen(false);
+      setLoadingText("Done!");
+      toast.success("Draft generated successfully!");
+
+      // Delay closing to show success state
+      setTimeout(() => {
+        onOpenChange(false);
+        setIsGenerating(false);
+        setLoadingText("Structuring...");
+      }, 1000);
     } catch (error) {
       console.error("Failed to process idea:", error);
-    } finally {
+      toast.error("Failed to generate draft. Please try again.");
       setIsGenerating(false);
       setLoadingText("Structuring...");
     }
@@ -157,10 +171,11 @@ export function IdeaDumpDialog() {
     addRequirement,
     addMilestone,
     setCompetitors,
+    onOpenChange,
   ]);
 
   return (
-    <Dialog onOpenChange={setIsOpen} open={isOpen}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Start with an Idea</DialogTitle>
@@ -189,7 +204,12 @@ export function IdeaDumpDialog() {
           >
             {isGenerating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingText}
+                {loadingText === "Done!" ? (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                ) : (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {loadingText}
               </>
             ) : (
               <>

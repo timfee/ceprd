@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { convertToModelMessages, streamText, tool } from "ai";
+import { type UIMessage, convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
 
 import { generateIdeaDumpStructure } from "@/app/actions";
@@ -8,14 +8,14 @@ import { SYSTEM_PROMPT } from "@/lib/prompts";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  console.log("🚀 Chat API called");
+  console.log("Chat API called");
 
-  const { messages } = await req.json();
-  console.log("📝 Messages received:", JSON.stringify(messages, null, 2));
+  const { messages } = (await req.json()) as { messages: unknown[] };
+  console.log("Messages received:", JSON.stringify(messages, null, 2));
 
-  console.log("🤖 Starting streamText with Gemini model");
+  console.log("Starting streamText with Gemini model");
   const result = streamText({
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages as UIMessage[]),
     model: google("gemini-2.0-flash-001"),
     system: SYSTEM_PROMPT,
     tools: {
@@ -57,16 +57,16 @@ export async function POST(req: Request) {
         description:
           "Initialize a NEW Product Requirements Document (PRD) from a description. Use this whenever the user asks to 'write', 'create', 'start', or 'generate' a PRD for a specific product idea, regardless of what the product does (e.g., 'a chat bot', 'an email system', 'an admin tool').",
         execute: async ({ idea }: { idea: string }) => {
-          console.log("🛠️ generateDraft tool called with idea:", idea);
-          console.log("📊 Starting generateIdeaDumpStructure...");
+          console.log("generateDraft tool called with idea:", idea);
+          console.log("Starting generateIdeaDumpStructure...");
 
           try {
             const structure = await generateIdeaDumpStructure(idea);
-            console.log("✅ generateIdeaDumpStructure completed successfully");
-            console.log("📋 Generated structure keys:", Object.keys(structure));
+            console.log("generateIdeaDumpStructure completed successfully");
+            console.log("Generated structure keys:", Object.keys(structure));
             return structure;
           } catch (error) {
-            console.error("❌ generateIdeaDumpStructure failed:", error);
+            console.error("generateIdeaDumpStructure failed:", error);
             throw error;
           }
         },
@@ -89,6 +89,6 @@ export async function POST(req: Request) {
     },
   });
 
-  console.log("📡 Returning stream response");
+  console.log("Returning stream response");
   return result.toUIMessageStreamResponse();
 }

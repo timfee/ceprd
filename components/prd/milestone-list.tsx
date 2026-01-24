@@ -1,72 +1,199 @@
-"use client";
+import {
+  Calendar,
+  ChevronDown,
+  MoreHorizontal,
+  PlusCircle,
+  Trash2,
+} from "lucide-react";
+import { memo, useCallback, useState } from "react";
+import { toast } from "sonner";
 
-import { Plus, Trash2 } from "lucide-react";
-import { memo, useCallback } from "react";
-
+import { refineText } from "@/app/actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { usePRDStore } from "@/lib/store";
-import { type Milestone } from "@/lib/types";
+import { type Milestone } from "@/lib/schemas";
+import { cn } from "@/lib/utils";
+import { AIToolbar, type AIInstruction } from "./ai-toolbar";
 
 interface MilestoneItemProps {
   milestone: Milestone;
-  onRemove: (id: string) => void;
-  onUpdate: (id: string, updates: Partial<Milestone>) => void;
+  index: number;
 }
 
-const MilestoneItem = memo(
-  ({ milestone, onRemove, onUpdate }: MilestoneItemProps) => {
-    const handleTitleChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        onUpdate(milestone.id, { title: e.target.value });
-      },
-      [milestone.id, onUpdate]
-    );
+const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
+  const { updateMilestone, removeMilestone } = usePRDStore(
+    (state) => state.actions
+  );
+  const [isExpanded, setIsExpanded] = useState(
+    !milestone.title && !milestone.targetDate
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
 
-    const handleDateChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        onUpdate(milestone.id, { targetDate: e.target.value });
-      },
-      [milestone.id, onUpdate]
-    );
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateMilestone(milestone.id, { title: e.target.value });
+    },
+    [milestone.id, updateMilestone]
+  );
 
-    const handleRemove = useCallback(() => {
-      onRemove(milestone.id);
-    }, [milestone.id, onRemove]);
+  const handleDateChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateMilestone(milestone.id, { targetDate: e.target.value });
+    },
+    [milestone.id, updateMilestone]
+  );
 
-    return (
-      <Card>
-        <CardContent className="space-y-4 p-4">
-          <div className="flex items-start gap-4">
-            <div className="flex-1 space-y-2">
-              <Input
-                className="h-auto border-0 px-0 font-medium text-lg placeholder:text-muted-foreground/50 focus-visible:ring-0"
-                onChange={handleTitleChange}
-                placeholder="Milestone Title (e.g., MVP)"
-                value={milestone.title}
-              />
-              <Input
-                className="h-6 w-[150px] text-xs"
-                onChange={handleDateChange}
-                placeholder="Target Date (e.g., Q3 2025)"
-                value={milestone.targetDate ?? ""}
+  const handleRemove = useCallback(() => {
+    removeMilestone(milestone.id);
+  }, [milestone.id, removeMilestone]);
+
+  const handleExpandToggle = useCallback(() => {
+    setIsExpanded((prev) => !prev);
+  }, []);
+
+  const handleExpand = useCallback(() => {
+    setIsExpanded(true);
+  }, []);
+
+  const handleRefine = useCallback(
+    async (instruction: AIInstruction) => {
+      if (!milestone.title) {
+        return;
+      }
+      setIsGenerating(true);
+      try {
+        const refined = await refineText(
+          milestone.title,
+          instruction,
+          `Milestone Context`
+        );
+        updateMilestone(milestone.id, { title: refined });
+        toast.success("Refined successfully");
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to refine");
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [milestone.title, milestone.id, updateMilestone]
+  );
+
+  const handleExitCriteriaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateMilestone(milestone.id, {
+        exitCriteria: e.target.value.split("\n"),
+      });
+    },
+    [milestone.id, updateMilestone]
+  );
+
+  return (
+    <div className="group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm">
+      <div className="flex h-12 items-center gap-3 px-3">
+        {/* Icon/Number */}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary text-sm">
+          {index + 1}
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Input
+            className="h-8 border-transparent bg-transparent px-0 text-sm font-medium focus-visible:ring-0 placeholder:text-muted-foreground/50"
+            onChange={handleTitleChange}
+            placeholder="e.g. MVP Release"
+            value={milestone.title}
+            onFocus={handleExpand}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Input
+              className="h-8 w-[140px] border-transparent bg-transparent text-right text-xs focus-visible:ring-0 placeholder:text-muted-foreground/50"
+              onChange={handleDateChange}
+              placeholder="Q1 2024"
+              value={milestone.targetDate || ""}
+            />
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleRemove}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Milestone
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            onClick={handleExpandToggle}
+          >
+            <div
+              className={cn(
+                "transition-transform duration-200",
+                isExpanded ? "rotate-90" : ""
+              )}
+            >
+              <ChevronDown className="h-4 w-4 -rotate-90" />
+            </div>
+          </Button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t bg-muted/10 p-4 animate-in slide-in-from-top-1 duration-200">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label
+                className="text-xs font-medium text-muted-foreground"
+                htmlFor={`criteria-${milestone.id}`}
+              >
+                Scope / Exit Criteria (One per line)
+              </label>
+              <AIToolbar
+                onRefine={handleRefine}
+                isGenerating={isGenerating}
+                hasContent={!!milestone.title}
+                generateLabel="Refine Title"
               />
             </div>
-            <Button
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={handleRemove}
-              size="icon"
-              variant="ghost"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <Textarea
+              className="min-h-[100px] resize-y bg-background text-sm leading-relaxed"
+              id={`criteria-${milestone.id}`}
+              onChange={handleExitCriteriaChange}
+              placeholder="List the key deliverables..."
+              value={milestone.exitCriteria.join("\n")}
+            />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
-);
+        </div>
+      )}
+    </div>
+  );
+});
 
 MilestoneItem.displayName = "MilestoneItem";
 
@@ -75,43 +202,51 @@ MilestoneItem.displayName = "MilestoneItem";
  */
 export function MilestoneList() {
   const milestones = usePRDStore((state) => state.prd.sections.milestones);
-  const { addMilestone, updateMilestone, removeMilestone } = usePRDStore(
-    (state) => state.actions
-  );
+  const { addMilestone } = usePRDStore((state) => state.actions);
 
   const handleAdd = useCallback(() => {
     addMilestone({
       exitCriteria: [],
       includedRequirementIds: [],
       targetDate: "",
-      title: "New Milestone",
+      title: "",
     });
   }, [addMilestone]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-xl">Milestones & Execution</h2>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" /> Add Milestone
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Milestones & Execution
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Plan the delivery timeline and key phases.
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="sm" className="gap-1.5">
+          <PlusCircle className="h-4 w-4" />
+          Add Milestone
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {milestones.map((milestone) => (
-          <MilestoneItem
-            key={milestone.id}
-            milestone={milestone}
-            onRemove={removeMilestone}
-            onUpdate={updateMilestone}
+      <div className="space-y-2">
+        {milestones.length === 0 ? (
+          <EmptyState
+            actionLabel="Add Milestone"
+            description="No milestones defined. Create a timeline for your project execution."
+            icon={Calendar}
+            onAction={handleAdd}
+            title="No milestones yet"
           />
-        ))}
-
-        {milestones.length === 0 && (
-          <div className="rounded-lg border border-dashed bg-muted/20 py-12 text-center text-muted-foreground">
-            No milestones defined. Click &quot;Add Milestone&quot; to plan
-            execution.
-          </div>
+        ) : (
+          milestones.map((milestone, index) => (
+            <MilestoneItem
+              key={milestone.id}
+              milestone={milestone}
+              index={index}
+            />
+          ))
         )}
       </div>
     </div>

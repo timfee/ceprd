@@ -7,6 +7,7 @@ import {
   type Competitor,
   type Goal,
   type Milestone,
+  type NarrativeBlock,
   type PRD,
   type Requirement,
   type Term,
@@ -23,12 +24,20 @@ export interface PRDState {
     updateActor: (id: string, updates: Partial<Actor>) => void;
     removeActor: (id: string) => void;
     addTerm: (term: Omit<Term, "id">) => void;
+    updateTerm: (id: string, updates: Partial<Term>) => void;
+    removeTerm: (id: string) => void;
     setCompetitors: (competitors: Competitor[]) => void;
+    toggleCompetitor: (id: string) => void;
     addRequirement: (req: Omit<Requirement, "id">) => void;
     updateRequirement: (id: string, updates: Partial<Requirement>) => void;
     removeRequirement: (id: string) => void;
+    moveRequirement: (id: string, direction: "up" | "down") => void;
     updateTLDR: (data: Partial<PRD["sections"]["tldr"]>) => void;
     updateBackground: (data: Partial<PRD["sections"]["background"]>) => void;
+    addNarrativeBlock: (block: Omit<NarrativeBlock, "id">) => void;
+    updateNarrativeBlock: (id: string, content: string) => void;
+    removeNarrativeBlock: (id: string) => void;
+    moveNarrativeBlock: (id: string, direction: "up" | "down") => void;
     addGoal: (goal: Omit<Goal, "id">) => void;
     updateGoal: (id: string, data: Partial<Goal>) => void;
     removeGoal: (id: string) => void;
@@ -53,6 +62,7 @@ const initialPRD: PRD = {
   },
   sections: {
     background: {
+      blocks: [],
       context: "",
       marketDrivers: [],
     },
@@ -85,6 +95,11 @@ export const usePRDStore = create<PRDState>()(
           state.prd.sections.milestones.push({ ...milestone, id: uuidv4() });
           state.prd.meta.lastUpdated = new Date();
         }),
+      addNarrativeBlock: (block) =>
+        set((state) => {
+          state.prd.sections.background.blocks.push({ ...block, id: uuidv4() });
+          state.prd.meta.lastUpdated = new Date();
+        }),
       addRequirement: (req) =>
         set((state) => {
           state.prd.sections.requirements.push({ ...req, id: uuidv4() });
@@ -94,6 +109,59 @@ export const usePRDStore = create<PRDState>()(
         set((state) => {
           state.prd.context.glossary.push({ ...term, id: uuidv4() });
           state.prd.meta.lastUpdated = new Date();
+        }),
+      moveNarrativeBlock: (id, direction) =>
+        set((state) => {
+          const index = state.prd.sections.background.blocks.findIndex(
+            (b) => b.id === id
+          );
+          if (index === -1) {
+            return;
+          }
+
+          const newIndex = direction === "up" ? index - 1 : index + 1;
+          if (
+            newIndex < 0 ||
+            newIndex >= state.prd.sections.background.blocks.length
+          ) {
+            return;
+          }
+
+          const newBlocks = [...state.prd.sections.background.blocks];
+          const temp = newBlocks[index];
+          if (temp && newBlocks[newIndex]) {
+            newBlocks[index] = newBlocks[newIndex];
+            newBlocks[newIndex] = temp;
+            state.prd.sections.background.blocks = newBlocks;
+            state.prd.meta.lastUpdated = new Date();
+          }
+        }),
+      moveRequirement: (id, direction) =>
+        set((state) => {
+          const index = state.prd.sections.requirements.findIndex(
+            (r) => r.id === id
+          );
+          if (index === -1) {
+            return;
+          }
+
+          const newIndex = direction === "up" ? index - 1 : index + 1;
+          if (
+            newIndex < 0 ||
+            newIndex >= state.prd.sections.requirements.length
+          ) {
+            return;
+          }
+
+          const newRequirements = [...state.prd.sections.requirements];
+          const temp = newRequirements[index];
+          if (temp && newRequirements[newIndex]) {
+            // Swap
+            newRequirements[index] = newRequirements[newIndex];
+            newRequirements[newIndex] = temp;
+            state.prd.sections.requirements = newRequirements;
+            state.prd.meta.lastUpdated = new Date();
+          }
         }),
       removeActor: (id) =>
         set((state) => {
@@ -116,10 +184,23 @@ export const usePRDStore = create<PRDState>()(
           );
           state.prd.meta.lastUpdated = new Date();
         }),
+      removeNarrativeBlock: (id) =>
+        set((state) => {
+          state.prd.sections.background.blocks =
+            state.prd.sections.background.blocks.filter((b) => b.id !== id);
+          state.prd.meta.lastUpdated = new Date();
+        }),
       removeRequirement: (id) =>
         set((state) => {
           state.prd.sections.requirements =
             state.prd.sections.requirements.filter((r) => r.id !== id);
+          state.prd.meta.lastUpdated = new Date();
+        }),
+      removeTerm: (id) =>
+        set((state) => {
+          state.prd.context.glossary = state.prd.context.glossary.filter(
+            (t) => t.id !== id
+          );
           state.prd.meta.lastUpdated = new Date();
         }),
       setCompetitors: (competitors) =>
@@ -131,14 +212,19 @@ export const usePRDStore = create<PRDState>()(
         set((state) => {
           state.hasChatStarted = started;
         }),
+      toggleCompetitor: (id) =>
+        set((state) => {
+          const comp = state.prd.context.competitors.find((c) => c.id === id);
+          if (comp) {
+            comp.selected = !comp.selected;
+            state.prd.meta.lastUpdated = new Date();
+          }
+        }),
       updateActor: (id, updates) =>
         set((state) => {
           const index = state.prd.context.actors.findIndex((a) => a.id === id);
-          if (index !== -1) {
-            state.prd.context.actors[index] = {
-              ...state.prd.context.actors[index],
-              ...updates,
-            };
+          if (index !== -1 && state.prd.context.actors[index]) {
+            Object.assign(state.prd.context.actors[index], updates);
             state.prd.meta.lastUpdated = new Date();
           }
         }),
@@ -150,7 +236,7 @@ export const usePRDStore = create<PRDState>()(
       updateGoal: (id, data) =>
         set((state) => {
           const index = state.prd.sections.goals.findIndex((g) => g.id === id);
-          if (index !== -1) {
+          if (index !== -1 && state.prd.sections.goals[index]) {
             Object.assign(state.prd.sections.goals[index], data);
             state.prd.meta.lastUpdated = new Date();
           }
@@ -160,8 +246,18 @@ export const usePRDStore = create<PRDState>()(
           const index = state.prd.sections.milestones.findIndex(
             (m) => m.id === id
           );
-          if (index !== -1) {
+          if (index !== -1 && state.prd.sections.milestones[index]) {
             Object.assign(state.prd.sections.milestones[index], data);
+            state.prd.meta.lastUpdated = new Date();
+          }
+        }),
+      updateNarrativeBlock: (id, content) =>
+        set((state) => {
+          const index = state.prd.sections.background.blocks.findIndex(
+            (b) => b.id === id
+          );
+          if (index !== -1 && state.prd.sections.background.blocks[index]) {
+            state.prd.sections.background.blocks[index].content = content;
             state.prd.meta.lastUpdated = new Date();
           }
         }),
@@ -170,11 +266,8 @@ export const usePRDStore = create<PRDState>()(
           const index = state.prd.sections.requirements.findIndex(
             (r) => r.id === id
           );
-          if (index !== -1) {
-            state.prd.sections.requirements[index] = {
-              ...state.prd.sections.requirements[index],
-              ...updates,
-            };
+          if (index !== -1 && state.prd.sections.requirements[index]) {
+            Object.assign(state.prd.sections.requirements[index], updates);
             state.prd.meta.lastUpdated = new Date();
           }
         }),
@@ -182,6 +275,16 @@ export const usePRDStore = create<PRDState>()(
         set((state) => {
           Object.assign(state.prd.sections.tldr, data);
           state.prd.meta.lastUpdated = new Date();
+        }),
+      updateTerm: (id, updates) =>
+        set((state) => {
+          const index = state.prd.context.glossary.findIndex(
+            (t) => t.id === id
+          );
+          if (index !== -1 && state.prd.context.glossary[index]) {
+            Object.assign(state.prd.context.glossary[index], updates);
+            state.prd.meta.lastUpdated = new Date();
+          }
         }),
       updateTitle: (title) =>
         //...

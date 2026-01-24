@@ -23,7 +23,7 @@ function AccordionItem({
 }: React.ComponentProps<typeof Item>) {
   return (
     <Item
-      className={cn("border-b last:border-b-0", className)}
+      className={cn("border-b last:border-b-0 overflow-hidden", className)}
       data-slot="accordion-item"
       {...props}
     />
