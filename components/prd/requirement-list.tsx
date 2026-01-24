@@ -14,11 +14,7 @@ import { toast } from "sonner";
 
 import { type Actor, type Requirement } from "@/lib/schemas";
 
-import {
-  evaluateRequirement,
-  generateRequirementDescription,
-  refineText,
-} from "@/app/actions";
+import { generateRequirementDescription } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -38,7 +34,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { usePRDStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { type AIInstruction, AIToolbar } from "./ai-toolbar";
+import { AIToolbar } from "./ai-toolbar";
 import { Badge } from "@/components/ui/badge";
 
 function getPriorityColor(p: string) {
@@ -188,6 +184,10 @@ const RequirementItem = memo(
       setIsExpanded(true);
     }, []);
 
+    const handleExpandToggle = useCallback(() => {
+      setIsExpanded((prev) => !prev);
+    }, []);
+
     const activeContextCount = competitors.filter((c) => c.selected).length;
 
     return (
@@ -328,9 +328,9 @@ const RequirementItem = memo(
 
                   <div className="flex items-center gap-2">
                     {activeContextCount > 0 && (
-                      <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-sm">
+                      <span className="rounded-sm bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
                         Using {activeContextCount} active competitor
-                        {activeContextCount !== 1 ? "s" : ""}
+                        {activeContextCount === 1 ? "" : "s"}
                       </span>
                     )}
                     <AIToolbar
@@ -349,12 +349,6 @@ const RequirementItem = memo(
                   placeholder="As a [User], I want to [Action] so that [Benefit]..."
                 />
               </div>
-
-              {feedback && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/30 dark:bg-amber-900/20 dark:text-amber-400">
-                  <span className="font-semibold">AI Feedback:</span> {feedback}
-                </div>
-              )}
             </div>
           </div>
         )}
