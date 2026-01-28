@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { useEffect, useState } from "react";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { usePRDStore } from "@/lib/store";
