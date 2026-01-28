@@ -12,7 +12,7 @@ const geistSans = Roboto_Flex({
 
 const geistMono = Roboto_Mono({
   subsets: ["latin"],
-  variable: "--font-geist-imono",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {

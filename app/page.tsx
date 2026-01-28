@@ -4,6 +4,7 @@ import { PRDEditor } from "@/components/prd/editor";
 import { PRDSidebar } from "@/components/prd/sidebar";
 
 export default function Page() {
+  console.log("[v0] Page rendering");
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background font-sans text-foreground">
       <div className="relative flex flex-1 overflow-hidden">
