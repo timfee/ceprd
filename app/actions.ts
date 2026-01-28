@@ -1,6 +1,5 @@
 "use server";
 
-import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -19,7 +18,7 @@ import {
  */
 export async function performCompetitiveResearch(productIdea: string) {
   const { output } = await generateText({
-    model: google("gemini-2.0-flash-001"),
+    model: "google/gemini-2.0-flash-001",
     output: Output.object({
       schema: z.object({
         competitors: z.array(
@@ -70,7 +69,7 @@ export async function generateSectionContent(
   const systemPrompt = isHumanizer ? HUMANIZER_PROMPT : undefined;
 
   const { output } = await generateText({
-    model: google("gemini-2.5-flash"),
+    model: "google/gemini-2.5-flash",
     output: Output.object({
       schema: z.object({
         background: z
@@ -152,7 +151,7 @@ export async function generateIdeaDumpStructure(
   progressCallback?.(0, "Analyzing product idea...");
 
   const { output } = await generateText({
-    model: google("gemini-2.0-flash-001"),
+    model: "google/gemini-2.0-flash-001",
     output: Output.object({
       schema: z.object({
         background: z.object({
@@ -268,7 +267,7 @@ export async function identifyPotentialTerms(
   existingTerms: string[]
 ) {
   const { output } = await generateText({
-    model: google("gemini-2.0-flash-001"),
+    model: "google/gemini-2.0-flash-001",
     output: Output.object({
       schema: z.object({
         terms: z.array(
@@ -316,7 +315,7 @@ export async function generateRequirementDescription(
   }
 ) {
   const { output } = await generateText({
-    model: google("gemini-2.5-flash"),
+    model: "google/gemini-2.5-flash",
     output: Output.object({
       schema: z.object({
         description: z.string(),
@@ -376,7 +375,7 @@ export async function refineText(
   context?: string
 ) {
   const { output } = await generateText({
-    model: google("gemini-2.5-flash"),
+    model: "google/gemini-2.5-flash",
     prompt: `
       You are an expert editor.
       
@@ -397,7 +396,7 @@ export async function evaluateRequirement(
   contextActors: { id: string; name: string }[]
 ) {
   const { output } = await generateText({
-    model: google("gemini-2.0-flash-001"),
+    model: "google/gemini-2.0-flash-001",
     output: Output.object({
       schema: z.object({
         autoFix: z.string().optional(),

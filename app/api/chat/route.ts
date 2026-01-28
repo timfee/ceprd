@@ -1,4 +1,3 @@
-import { google } from "@ai-sdk/google";
 import { type UIMessage, convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
 
@@ -25,7 +24,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     messages: await convertToModelMessages(messages as UIMessage[]),
-    model: google("gemini-2.0-flash-001"),
+    model: "google/gemini-2.0-flash-001",
     system: `${SYSTEM_PROMPT}${contextBlock}`,
     tools: {
       addActor: tool({
