@@ -5,9 +5,7 @@ import { MessageSquare, Loader2 } from "lucide-react";
 import { usePRDStore } from "@/lib/store";
 
 export function Overlay() {
-  console.log("[v0] Overlay rendering");
   const appStatus = usePRDStore((state) => state.appStatus);
-  console.log("[v0] Overlay appStatus:", appStatus);
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {

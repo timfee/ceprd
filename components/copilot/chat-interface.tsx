@@ -1,6 +1,6 @@
 "use client";
 
-import { type UIToolInvocation, DefaultChatTransport } from "ai";
+import { type UIToolInvocation } from "ai";
 
 import { useChat } from "@ai-sdk/react";
 import { Check, CheckCircle2, Loader2, Send, Sparkles, X } from "lucide-react";
@@ -462,9 +462,7 @@ const ToolHandler = memo(
 ToolHandler.displayName = "ToolHandler";
 
 export function CopilotSidebar() {
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-  });
+  const { messages, sendMessage, status } = useChat();
   const setAppStatus = usePRDStore((state) => state.actions.setAppStatus);
   const appStatus = usePRDStore((state) => state.appStatus);
   const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
