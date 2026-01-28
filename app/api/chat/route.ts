@@ -3,6 +3,8 @@ import { type UIMessage, convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
 
 import { generateIdeaDumpStructure } from "@/app/actions";
+import { AIResponseSchema } from "@/lib/ai-contract";
+import { type ContextPack } from "@/lib/knowledge";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -10,14 +12,21 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   console.log("Chat API called");
 
-  const { messages } = (await req.json()) as { messages: unknown[] };
+  const { contextPack, messages } = (await req.json()) as {
+    contextPack?: ContextPack;
+    messages: unknown[];
+  };
   console.log("Messages received:", JSON.stringify(messages, null, 2));
 
   console.log("Starting streamText with Gemini model");
+  const contextBlock = contextPack
+    ? `\n\n## PRD Context Pack\n${JSON.stringify(contextPack, null, 2)}`
+    : "";
+
   const result = streamText({
     messages: await convertToModelMessages(messages as UIMessage[]),
     model: google("gemini-2.0-flash-001"),
-    system: SYSTEM_PROMPT,
+    system: `${SYSTEM_PROMPT}${contextBlock}`,
     tools: {
       addActor: tool({
         description: "Add a new actor/persona to the PRD.",
@@ -77,6 +86,11 @@ export async function POST(req: Request) {
               "The full description of the product idea provided by the user."
             ),
         }),
+      }),
+      proposeChanges: tool({
+        description: "Propose a batch of PRD changes with traceable citations.",
+        execute: async (args) => await Promise.resolve(args),
+        inputSchema: AIResponseSchema,
       }),
       updateTLDR: tool({
         description: "Update the TL;DR problem or solution.",

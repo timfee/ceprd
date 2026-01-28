@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
+import { type FocusSection } from "./knowledge";
 import {
   type Actor,
   type Competitor,
@@ -14,10 +15,18 @@ import {
 } from "./schemas";
 
 export interface PRDState {
-  hasChatStarted: boolean;
+  activeSection: FocusSection;
+  activeNodeIds: string[];
+  focusMode: boolean;
+  appStatus: "idle" | "initializing" | "ready";
   prd: PRD;
   actions: {
-    setHasChatStarted: (started: boolean) => void;
+    setAppStatus: (status: "idle" | "initializing" | "ready") => void;
+    clearActiveFocus: () => void;
+    setFocusMode: (enabled: boolean) => void;
+    setActiveFocus: (section: FocusSection, nodeIds: string[]) => void;
+    setActiveSection: (section: FocusSection) => void;
+    setDiscoveryMode: (mode: PRD["meta"]["discoveryMode"]) => void;
     updateTitle: (title: string) => void;
     //...
     addActor: (actor: Omit<Actor, "id"> & { id?: string }) => void;
@@ -54,6 +63,7 @@ const initialPRD: PRD = {
     glossary: [],
   },
   meta: {
+    discoveryMode: "default",
     id: uuidv4(),
     lastUpdated: new Date(),
     status: "Draft",
@@ -109,6 +119,10 @@ export const usePRDStore = create<PRDState>()(
         set((state) => {
           state.prd.context.glossary.push({ ...term, id: uuidv4() });
           state.prd.meta.lastUpdated = new Date();
+        }),
+      clearActiveFocus: () =>
+        set((state) => {
+          state.activeNodeIds = [];
         }),
       moveNarrativeBlock: (id, direction) =>
         set((state) => {
@@ -168,6 +182,9 @@ export const usePRDStore = create<PRDState>()(
           state.prd.context.actors = state.prd.context.actors.filter(
             (a) => a.id !== id
           );
+          state.activeNodeIds = state.activeNodeIds.filter(
+            (item) => item !== id
+          );
           state.prd.meta.lastUpdated = new Date();
         }),
       removeGoal: (id) =>
@@ -175,12 +192,18 @@ export const usePRDStore = create<PRDState>()(
           state.prd.sections.goals = state.prd.sections.goals.filter(
             (g) => g.id !== id
           );
+          state.activeNodeIds = state.activeNodeIds.filter(
+            (item) => item !== id
+          );
           state.prd.meta.lastUpdated = new Date();
         }),
       removeMilestone: (id) =>
         set((state) => {
           state.prd.sections.milestones = state.prd.sections.milestones.filter(
             (m) => m.id !== id
+          );
+          state.activeNodeIds = state.activeNodeIds.filter(
+            (item) => item !== id
           );
           state.prd.meta.lastUpdated = new Date();
         }),
@@ -194,6 +217,9 @@ export const usePRDStore = create<PRDState>()(
         set((state) => {
           state.prd.sections.requirements =
             state.prd.sections.requirements.filter((r) => r.id !== id);
+          state.activeNodeIds = state.activeNodeIds.filter(
+            (item) => item !== id
+          );
           state.prd.meta.lastUpdated = new Date();
         }),
       removeTerm: (id) =>
@@ -201,16 +227,41 @@ export const usePRDStore = create<PRDState>()(
           state.prd.context.glossary = state.prd.context.glossary.filter(
             (t) => t.id !== id
           );
+          state.activeNodeIds = state.activeNodeIds.filter(
+            (item) => item !== id
+          );
           state.prd.meta.lastUpdated = new Date();
+        }),
+      setActiveFocus: (section, nodeIds) =>
+        set((state) => {
+          state.activeSection = section;
+          state.activeNodeIds = nodeIds;
+        }),
+      setActiveSection: (section) =>
+        set((state) => {
+          state.activeSection = section;
+          state.activeNodeIds = [];
+        }),
+      setAppStatus: (status) =>
+        set((state) => {
+          state.appStatus = status;
         }),
       setCompetitors: (competitors) =>
         set((state) => {
           state.prd.context.competitors = competitors;
           state.prd.meta.lastUpdated = new Date();
         }),
-      setHasChatStarted: (started) =>
+      setDiscoveryMode: (mode) =>
         set((state) => {
-          state.hasChatStarted = started;
+          state.prd.meta.discoveryMode = mode;
+          state.prd.meta.lastUpdated = new Date();
+        }),
+      setFocusMode: (enabled) =>
+        set((state) => {
+          state.focusMode = enabled;
+          if (!enabled) {
+            state.activeNodeIds = [];
+          }
         }),
       toggleCompetitor: (id) =>
         set((state) => {
@@ -293,7 +344,10 @@ export const usePRDStore = create<PRDState>()(
           state.prd.meta.lastUpdated = new Date();
         }),
     },
-    hasChatStarted: false,
+    activeNodeIds: [],
+    activeSection: "tldr",
+    appStatus: "idle",
+    focusMode: true,
     prd: initialPRD,
   }))
 );

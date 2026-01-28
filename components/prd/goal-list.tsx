@@ -55,7 +55,11 @@ interface GoalItemProps {
 }
 
 const GoalItem = memo(({ goal, index }: GoalItemProps) => {
-  const { updateGoal, removeGoal } = usePRDStore((state) => state.actions);
+  const { setActiveFocus, updateGoal, removeGoal } = usePRDStore(
+    (state) => state.actions
+  );
+  const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
+  const focusMode = usePRDStore((state) => state.focusMode);
   const [isExpanded, setIsExpanded] = useState(
     !goal.title && !goal.description
   );
@@ -95,6 +99,19 @@ const GoalItem = memo(({ goal, index }: GoalItemProps) => {
     setIsExpanded(true);
   }, []);
 
+  const handleItemFocus = useCallback(() => {
+    setActiveFocus("goals", [goal.id]);
+  }, [goal.id, setActiveFocus]);
+
+  const handleTitleFocus = useCallback(() => {
+    handleExpand();
+    handleItemFocus();
+  }, [handleExpand, handleItemFocus]);
+
+  const handleFocusClick = useCallback(() => {
+    setActiveFocus("goals", [goal.id]);
+  }, [goal.id, setActiveFocus]);
+
   const handleRefine = useCallback(
     async (instruction: AIInstruction) => {
       if (!goal.description) {
@@ -119,13 +136,29 @@ const GoalItem = memo(({ goal, index }: GoalItemProps) => {
     [goal.description, goal.title, goal.id, updateGoal]
   );
 
+  const isFocused = activeNodeIds.includes(goal.id);
+  const shouldDim = focusMode && activeNodeIds.length > 0 && !isFocused;
+
   return (
-    <div className="group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm">
+    <div
+      className={cn(
+        "group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm",
+        isFocused &&
+          "border-primary/60 ring-1 ring-primary/20 shadow-[0_0_0_1px_rgba(59,130,246,0.1)]",
+        shouldDim && "opacity-60"
+      )}
+    >
       <div className="flex h-12 items-center gap-3 px-3">
         {/* Icon/Number */}
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary text-sm">
+        <Button
+          aria-label={`Focus goal ${goal.title || "Untitled"}`}
+          className="h-8 w-8 shrink-0 rounded-full bg-primary/10 p-0 text-sm font-semibold text-primary"
+          onClick={handleFocusClick}
+          size="icon"
+          variant="ghost"
+        >
           {index + 1}
-        </div>
+        </Button>
 
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Input
@@ -133,7 +166,7 @@ const GoalItem = memo(({ goal, index }: GoalItemProps) => {
             onChange={handleTitleChange}
             placeholder="e.g. Increase User Retention"
             value={goal.title}
-            onFocus={handleExpand}
+            onFocus={handleTitleFocus}
           />
         </div>
 
@@ -216,6 +249,7 @@ const GoalItem = memo(({ goal, index }: GoalItemProps) => {
               onChange={handleDescriptionChange}
               placeholder="Describe the goal and how success will be measured..."
               value={goal.description}
+              onFocus={handleItemFocus}
             />
           </div>
         </div>

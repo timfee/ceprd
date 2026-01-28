@@ -33,6 +33,8 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
   const { updateMilestone, removeMilestone } = usePRDStore(
     (state) => state.actions
   );
+  const setActiveFocus = usePRDStore((state) => state.actions.setActiveFocus);
+  const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
   const [isExpanded, setIsExpanded] = useState(
     !milestone.title && !milestone.targetDate
   );
@@ -63,6 +65,17 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
   const handleExpand = useCallback(() => {
     setIsExpanded(true);
   }, []);
+
+  const handleItemFocus = useCallback(() => {
+    setActiveFocus("milestones", [milestone.id]);
+  }, [milestone.id, setActiveFocus]);
+
+  const isFocused = activeNodeIds.includes(milestone.id);
+
+  const handleTitleFocus = useCallback(() => {
+    handleExpand();
+    handleItemFocus();
+  }, [handleExpand, handleItemFocus]);
 
   const handleRefine = useCallback(
     async (instruction: AIInstruction) => {
@@ -98,7 +111,13 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
   );
 
   return (
-    <div className="group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm">
+    <div
+      className={cn(
+        "group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm",
+        isFocused &&
+          "border-primary/60 ring-1 ring-primary/20 shadow-[0_0_0_1px_rgba(59,130,246,0.1)]"
+      )}
+    >
       <div className="flex h-12 items-center gap-3 px-3">
         {/* Icon/Number */}
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary text-sm">
@@ -111,7 +130,7 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
             onChange={handleTitleChange}
             placeholder="e.g. MVP Release"
             value={milestone.title}
-            onFocus={handleExpand}
+            onFocus={handleTitleFocus}
           />
         </div>
 
@@ -122,6 +141,7 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
               onChange={handleDateChange}
               placeholder="Q1 2024"
               value={milestone.targetDate || ""}
+              onFocus={handleItemFocus}
             />
           </div>
 
@@ -187,6 +207,7 @@ const MilestoneItem = memo(({ milestone, index }: MilestoneItemProps) => {
               onChange={handleExitCriteriaChange}
               placeholder="List the key deliverables..."
               value={milestone.exitCriteria.join("\n")}
+              onFocus={handleItemFocus}
             />
           </div>
         </div>

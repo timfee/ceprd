@@ -45,6 +45,9 @@ const NarrativeBlockItem = memo(
     onUpdate,
     onMove,
   }: NarrativeBlockItemProps) => {
+    const setActiveSection = usePRDStore(
+      (state) => state.actions.setActiveSection
+    );
     const [isGenerating, setIsGenerating] = useState(false);
 
     const handleContentChange = useCallback(
@@ -106,6 +109,10 @@ const NarrativeBlockItem = memo(
     const handleRemove = useCallback(() => {
       onRemove(block.id);
     }, [block.id, onRemove]);
+
+    const handleFocus = useCallback(() => {
+      setActiveSection("background");
+    }, [setActiveSection]);
 
     return (
       <Card className="group relative transition-all hover:border-foreground/20 hover:shadow-sm">
@@ -176,6 +183,7 @@ const NarrativeBlockItem = memo(
               }
               value={block.content}
               onChange={handleContentChange}
+              onFocus={handleFocus}
             />
           </div>
         </CardContent>
@@ -209,15 +217,17 @@ export function NarrativeBuilder() {
     removeNarrativeBlock,
     updateNarrativeBlock,
     moveNarrativeBlock,
+    setActiveSection,
   } = usePRDStore((state) => state.actions);
 
   const handleAddText = useCallback(() => {
+    setActiveSection("background");
     addNarrativeBlock({
       content: "",
       title: "New Section",
       type: "text",
     });
-  }, [addNarrativeBlock]);
+  }, [addNarrativeBlock, setActiveSection]);
 
   const marketDrivers = usePRDStore(
     (state) => state.prd.sections.background.marketDrivers
@@ -225,13 +235,14 @@ export function NarrativeBuilder() {
 
   const handleAddDriverBlock = useCallback(
     (driver: string) => {
+      setActiveSection("background");
       addNarrativeBlock({
         content: "",
         title: driver,
         type: "driver",
       });
     },
-    [addNarrativeBlock]
+    [addNarrativeBlock, setActiveSection]
   );
 
   return (

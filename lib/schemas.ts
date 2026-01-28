@@ -37,6 +37,7 @@ export const RequirementSchema = z.object({
   id: z.string().uuid(),
   primaryActorId: z.string().uuid(),
   priority: z.enum(["P0", "P1", "P2", "P3"]),
+  relatedGoalIds: z.array(z.string().uuid()).default([]),
   secondaryActorIds: z.array(z.string().uuid()).default([]),
   status: z.enum(["Draft", "Proposed", "Approved", "Deprecated"]),
   title: z.string().min(5),
@@ -76,6 +77,8 @@ export const NarrativeBlockSchema = z.object({
   type: z.enum(["text", "driver"]),
 });
 
+export const DiscoveryModeSchema = z.enum(["default", "off", "on"]);
+
 // The Master Document
 export const PRDSchema = z.object({
   context: z.object({
@@ -84,6 +87,7 @@ export const PRDSchema = z.object({
     glossary: z.array(TermSchema),
   }),
   meta: z.object({
+    discoveryMode: DiscoveryModeSchema.default("default"),
     id: z.string().uuid(),
     lastUpdated: z.date(),
     status: z.enum(["Draft", "Review", "Final"]),
@@ -108,6 +112,7 @@ export const PRDSchema = z.object({
 });
 
 export type PRD = z.infer<typeof PRDSchema>;
+export type DiscoveryMode = z.infer<typeof DiscoveryModeSchema>;
 export type Actor = z.infer<typeof ActorSchema>;
 export type Term = z.infer<typeof TermSchema>;
 export type Competitor = z.infer<typeof CompetitorSchema>;

@@ -311,14 +311,21 @@ export async function generateRequirementDescription(
   context?: {
     background?: string;
     competitorContext?: string[];
-    goals?: string[];
+    goals?: { id: string; title: string }[];
     glossary?: string[];
   }
 ) {
   const { output } = await generateText({
     model: google("gemini-2.5-flash"),
+    output: Output.object({
+      schema: z.object({
+        description: z.string(),
+        primaryActorName: z.string().optional(),
+        relatedGoalIds: z.array(z.string()).default([]),
+      }),
+    }),
     prompt: `
-      Write a professional, concise product requirement description for a feature titled: "${title}".
+      Write a detailed, high-quality product requirement description for a feature titled: "${title}".
       Type: ${type}
       
       Primary Actors available: ${actors.map((a) => a.name).join(", ")}
@@ -331,7 +338,7 @@ export async function generateRequirementDescription(
       }
       ${
         context?.goals?.length
-          ? `Align with these Project Goals:\n- ${context.goals.join("\n- ")}`
+          ? `Align with these Project Goals:\n- ${context.goals.map((g) => `${g.title} (ID: ${g.id})`).join("\n- ")}`
           : ""
       }
       ${
@@ -341,10 +348,19 @@ export async function generateRequirementDescription(
       }
 
       Instructions:
-      - Format as a user story ("As a [Actor], I want to...") OR a system behavior ("The system shall...").
-      - Be specific and testable.
-      - Explicitly reference the competitive gap or project goal if relevant.
-      - Keep it under 4 sentences.
+      1. Description Format:
+         - For "User Story": Use standard "As a [Actor], I want to [Action] so that [Benefit]" format, followed by "Acceptance Criteria:" list.
+         - For "System Behavior": Use "Given [Condition], When [Event], Then [System Action]" format.
+         - For others: Be specific, testable, and unambiguous.
+      2. Actor Selection:
+         - Select the most appropriate Primary Actor from the provided list. 
+         - Return their exact name in 'primaryActorName'.
+      3. Traceability:
+         - Identify which Project Goals this requirement directly supports.
+         - Return their IDs in 'relatedGoalIds'.
+      4. Quality:
+         - Avoid vague words like "robust", "seamless", "user-friendly".
+         - Be detailed.
     `,
   });
 

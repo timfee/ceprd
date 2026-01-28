@@ -24,6 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { type PRDState, usePRDStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 interface CompetitorAnalysisProps {
   title?: string;
@@ -32,10 +33,21 @@ interface CompetitorAnalysisProps {
 
 interface CompetitorCardProps {
   competitor: PRDState["prd"]["context"]["competitors"][0];
+  onFocus: (id: string) => void;
   onToggle: (id: string) => void;
 }
 
-function CompetitorCard({ competitor, onToggle }: CompetitorCardProps) {
+function CompetitorCard({
+  competitor,
+  onFocus,
+  onToggle,
+}: CompetitorCardProps) {
+  const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
+  const focusMode = usePRDStore((state) => state.focusMode);
+  const handleCardFocus = useCallback(() => {
+    onFocus(competitor.id);
+  }, [competitor.id, onFocus]);
+
   const handleToggle = useCallback(() => {
     onToggle(competitor.id);
   }, [competitor.id, onToggle]);
@@ -44,8 +56,17 @@ function CompetitorCard({ competitor, onToggle }: CompetitorCardProps) {
     e.stopPropagation();
   }, []);
 
+  const isFocused = activeNodeIds.includes(competitor.id);
+  const shouldDim = focusMode && activeNodeIds.length > 0 && !isFocused;
+
   return (
-    <Card className={competitor.selected ? "border-primary" : ""}>
+    <Card
+      className={cn(
+        competitor.selected ? "border-primary" : "",
+        isFocused && "ring-1 ring-primary/20",
+        shouldDim && "opacity-60"
+      )}
+    >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex flex-1 items-start gap-3">
@@ -86,6 +107,15 @@ function CompetitorCard({ competitor, onToggle }: CompetitorCardProps) {
               Active Context
             </Badge>
           )}
+          <Button
+            aria-label={`Focus competitor ${competitor.name}`}
+            className="ml-2 h-7 w-7"
+            onClick={handleCardFocus}
+            size="icon"
+            variant="ghost"
+          >
+            <Target className="h-4 w-4" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -155,11 +185,17 @@ export function CompetitorAnalysis({
   title,
 }: CompetitorAnalysisProps) {
   const competitors = usePRDStore((state) => state.prd.context.competitors);
-  const { setCompetitors, addRequirement, toggleCompetitor } = usePRDStore(
-    (state) => state.actions
-  );
+  const appStatus = usePRDStore((state) => state.appStatus);
+  const {
+    addRequirement,
+    setActiveFocus,
+    setActiveSection,
+    setCompetitors,
+    toggleCompetitor,
+  } = usePRDStore((state) => state.actions);
 
   const [isResearching, setIsResearching] = useState(false);
+  const isLoading = isResearching || appStatus === "initializing";
 
   const hasMinimumContext = Boolean(title && problem);
   const selectedCompetitors = competitors.filter((c) => c.selected);
@@ -169,6 +205,7 @@ export function CompetitorAnalysis({
     if (!title || !problem) {
       return;
     }
+    setActiveSection("competitors");
     setIsResearching(true);
     try {
       // Use both title and problem for better context
@@ -196,9 +233,10 @@ export function CompetitorAnalysis({
     } finally {
       setIsResearching(false);
     }
-  }, [title, problem, setCompetitors]);
+  }, [problem, setActiveSection, setCompetitors, title]);
 
   const handleGenerateReqs = useCallback(() => {
+    setActiveSection("requirements");
     for (const comp of selectedCompetitors) {
       for (const gap of comp.featureGaps) {
         addRequirement({
@@ -210,6 +248,8 @@ export function CompetitorAnalysis({
 
           priority: "P2",
 
+          relatedGoalIds: [],
+
           secondaryActorIds: [],
 
           status: "Draft",
@@ -220,11 +260,26 @@ export function CompetitorAnalysis({
         });
       }
     }
-  }, [selectedCompetitors, addRequirement]);
+  }, [addRequirement, selectedCompetitors, setActiveSection]);
+
+  const handleFocusCompetitor = useCallback(
+    (id: string) => {
+      setActiveFocus("competitors", [id]);
+    },
+    [setActiveFocus]
+  );
+
+  const handleToggleCompetitor = useCallback(
+    (id: string) => {
+      setActiveFocus("competitors", [id]);
+      toggleCompetitor(id);
+    },
+    [setActiveFocus, toggleCompetitor]
+  );
 
   // Not enough context state
 
-  if (!hasMinimumContext) {
+  if (!hasMinimumContext && !isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-start justify-between">
@@ -292,25 +347,33 @@ export function CompetitorAnalysis({
             your product
           </p>
         </div>
-        <Button
-          className="gap-2"
-          disabled={isResearching}
-          onClick={handleResearch}
-          size="lg"
-        >
-          {isResearching ? (
-            <>
-              <Spinner className="h-4 w-4" />
-              Analyzing...
-            </>
-          ) : (
-            <span>
-              {competitors.length > 0
-                ? "Refresh Analysis"
-                : "Analyze Competitors"}
-            </span>
+        <div className="flex items-center gap-3">
+          {isResearching && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Spinner className="h-3 w-3" />
+              Researching competitors...
+            </div>
           )}
-        </Button>
+          <Button
+            className="gap-2"
+            disabled={isLoading}
+            onClick={handleResearch}
+            size="lg"
+          >
+            {isLoading ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Analyzing...
+              </>
+            ) : (
+              <span>
+                {competitors.length > 0
+                  ? "Refresh Analysis"
+                  : "Analyze Competitors"}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Context being used */}
@@ -336,7 +399,7 @@ export function CompetitorAnalysis({
       </Card>
 
       {/* Competitors list */}
-      {competitors.length > 0 && (
+      {competitors.length > 0 && !isLoading && (
         <>
           <div className="flex items-center justify-between">
             <div>
@@ -357,7 +420,8 @@ export function CompetitorAnalysis({
               <CompetitorCard
                 competitor={competitor}
                 key={competitor.id}
-                onToggle={toggleCompetitor}
+                onFocus={handleFocusCompetitor}
+                onToggle={handleToggleCompetitor}
               />
             ))}
           </div>
@@ -402,7 +466,7 @@ export function CompetitorAnalysis({
       )}
 
       {/* No competitors yet */}
-      {competitors.length === 0 && !isResearching && (
+      {competitors.length === 0 && !isLoading && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="mb-4 h-12 w-12 text-muted-foreground/50" />
@@ -417,7 +481,7 @@ export function CompetitorAnalysis({
         </Card>
       )}
 
-      {isResearching && (
+      {isLoading && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Spinner className="mb-4 h-8 w-8" />

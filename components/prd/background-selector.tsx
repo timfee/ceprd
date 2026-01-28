@@ -80,17 +80,20 @@ export function BackgroundSelector() {
   const marketDrivers = usePRDStore(
     (state) => state.prd.sections.background.marketDrivers
   );
-  const { updateBackground } = usePRDStore((state) => state.actions);
+  const { setActiveSection, updateBackground } = usePRDStore(
+    (state) => state.actions
+  );
 
   const toggleDriver = useCallback(
     (driver: string) => {
+      setActiveSection("background");
       const exists = marketDrivers.includes(driver);
       const newDrivers = exists
         ? marketDrivers.filter((d) => d !== driver)
         : [...marketDrivers, driver];
       updateBackground({ marketDrivers: newDrivers });
     },
-    [marketDrivers, updateBackground]
+    [marketDrivers, setActiveSection, updateBackground]
   );
 
   return (

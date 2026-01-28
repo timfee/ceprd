@@ -7,6 +7,7 @@ import {
   GripVertical,
   MoreHorizontal,
   PlusCircle,
+  Target,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
@@ -66,8 +67,14 @@ interface RequirementItemProps {
 
 const RequirementItem = memo(
   ({ req, index, isLast, actors }: RequirementItemProps) => {
-    const { updateRequirement, removeRequirement, moveRequirement } =
-      usePRDStore((state) => state.actions);
+    const {
+      setActiveFocus,
+      updateRequirement,
+      removeRequirement,
+      moveRequirement,
+    } = usePRDStore((state) => state.actions);
+    const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
+    const focusMode = usePRDStore((state) => state.focusMode);
 
     // Context selectors
     const background = usePRDStore(
@@ -87,6 +94,24 @@ const RequirementItem = memo(
         updateRequirement(req.id, { title: e.target.value });
       },
       [req.id, updateRequirement]
+    );
+
+    const handleItemFocus = useCallback(() => {
+      setActiveFocus("requirements", [req.id]);
+    }, [req.id, setActiveFocus]);
+
+    const isFocused = activeNodeIds.includes(req.id);
+    const shouldDim = focusMode && activeNodeIds.length > 0 && !isFocused;
+
+    const handleGoalFocus = useCallback(
+      (event: React.MouseEvent<HTMLButtonElement>) => {
+        const { goalId } = event.currentTarget.dataset;
+        if (!goalId) {
+          return;
+        }
+        setActiveFocus("goals", [goalId]);
+      },
+      [setActiveFocus]
     );
 
     const handlePriorityCycle = useCallback(() => {
@@ -141,10 +166,10 @@ const RequirementItem = memo(
         const competitorContext = activeCompetitors.flatMap((c) =>
           c.featureGaps.map((gap) => `Competitor ${c.name} has gap: ${gap}`)
         );
-        const activeGoals = goals.map((g) => g.title);
+        const activeGoals = goals.map((g) => ({ id: g.id, title: g.title }));
         const activeGlossary = glossary.map((t) => t.term);
 
-        const description = await generateRequirementDescription(
+        const result = await generateRequirementDescription(
           req.title,
           req.type,
           actors,
@@ -156,8 +181,25 @@ const RequirementItem = memo(
             goals: activeGoals.length > 0 ? activeGoals : undefined,
           }
         );
-        updateRequirement(req.id, { description });
-        toast.success("Description generated!");
+
+        // Resolve Actor Name to ID
+        let foundActorId = req.primaryActorId;
+        if (result.primaryActorName) {
+          const matchingActor = actors.find(
+            (a) =>
+              a.name.toLowerCase() === result.primaryActorName?.toLowerCase()
+          );
+          if (matchingActor) {
+            foundActorId = matchingActor.id;
+          }
+        }
+
+        updateRequirement(req.id, {
+          description: result.description,
+          primaryActorId: foundActorId,
+          relatedGoalIds: result.relatedGoalIds || [],
+        });
+        toast.success("Description generated and linked!");
       } catch (error) {
         console.error(error);
         toast.error("Failed to generate description");
@@ -168,6 +210,7 @@ const RequirementItem = memo(
       req.title,
       req.type,
       req.id,
+      req.primaryActorId,
       actors,
       background,
       goals,
@@ -184,6 +227,11 @@ const RequirementItem = memo(
       setIsExpanded(true);
     }, []);
 
+    const handleTitleFocus = useCallback(() => {
+      handleExpand();
+      handleItemFocus();
+    }, [handleExpand, handleItemFocus]);
+
     const handleExpandToggle = useCallback(() => {
       setIsExpanded((prev) => !prev);
     }, []);
@@ -191,7 +239,14 @@ const RequirementItem = memo(
     const activeContextCount = competitors.filter((c) => c.selected).length;
 
     return (
-      <div className="group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm">
+      <div
+        className={cn(
+          "group flex flex-col rounded-lg border bg-card transition-all hover:border-foreground/20 hover:shadow-sm",
+          isFocused &&
+            "border-primary/60 ring-1 ring-primary/20 shadow-[0_0_0_1px_rgba(59,130,246,0.1)]",
+          shouldDim && "opacity-60"
+        )}
+      >
         {/* Header Row */}
         <div className="flex h-12 items-center gap-3 px-3">
           <div className="flex w-6 flex-col items-center justify-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -226,11 +281,21 @@ const RequirementItem = memo(
               value={req.title}
               onChange={handleTitleChange}
               placeholder="Requirement Title (e.g. User Login)"
-              onFocus={handleExpand}
+              onFocus={handleTitleFocus}
             />
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              aria-label="Focus requirement"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={handleItemFocus}
+              size="icon"
+              variant="ghost"
+              title="Spotlight this requirement"
+            >
+              <Target className="h-4 w-4" />
+            </Button>
             <Badge
               variant="outline"
               className={cn(
@@ -347,7 +412,34 @@ const RequirementItem = memo(
                   value={req.description}
                   onChange={handleDescriptionChange}
                   placeholder="As a [User], I want to [Action] so that [Benefit]..."
+                  onFocus={handleItemFocus}
                 />
+
+                {req.relatedGoalIds && req.relatedGoalIds.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Linked Goals:
+                    </span>
+                    {req.relatedGoalIds.map((goalId) => {
+                      const goal = goals.find((g) => g.id === goalId);
+                      if (!goal) {
+                        return null;
+                      }
+                      return (
+                        <Badge asChild key={goalId} variant="secondary">
+                          <button
+                            className="h-5 cursor-pointer px-1.5 py-0 text-[10px] font-normal"
+                            data-goal-id={goalId}
+                            onClick={handleGoalFocus}
+                            type="button"
+                          >
+                            {goal.title}
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -369,6 +461,7 @@ export function RequirementList() {
       description: "",
       primaryActorId: actors[0]?.id || "",
       priority: "P2",
+      relatedGoalIds: [],
       secondaryActorIds: [],
       status: "Draft",
       title: "",

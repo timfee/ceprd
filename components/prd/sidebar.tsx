@@ -8,6 +8,7 @@ import {
   Plus,
   ScanSearch,
   Settings,
+  Target,
   Trash2,
   User,
   X,
@@ -24,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PERSONA_ROLES } from "@/lib/repository";
 import { usePRDStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -39,6 +41,9 @@ interface ActorItemProps {
 }
 
 const ActorItem = memo(({ actor, onRemove, onUpdate }: ActorItemProps) => {
+  const setActiveFocus = usePRDStore((state) => state.actions.setActiveFocus);
+  const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
+  const focusMode = usePRDStore((state) => state.focusMode);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(actor.name);
   const [editRole, setEditRole] = useState(actor.role);
@@ -48,10 +53,15 @@ const ActorItem = memo(({ actor, onRemove, onUpdate }: ActorItemProps) => {
   }, [actor.id, onRemove]);
 
   const handleEdit = useCallback(() => {
+    setActiveFocus("actors", [actor.id]);
     setIsEditing(true);
     setEditName(actor.name);
     setEditRole(actor.role);
-  }, [actor.name, actor.role]);
+  }, [actor.id, actor.name, actor.role, setActiveFocus]);
+
+  const handleFocus = useCallback(() => {
+    setActiveFocus("actors", [actor.id]);
+  }, [actor.id, setActiveFocus]);
 
   const handleSave = useCallback(() => {
     if (editName.trim()) {
@@ -130,8 +140,17 @@ const ActorItem = memo(({ actor, onRemove, onUpdate }: ActorItemProps) => {
     );
   }
 
+  const isFocused = activeNodeIds.includes(actor.id);
+  const shouldDim = focusMode && activeNodeIds.length > 0 && !isFocused;
+
   return (
-    <div className="group flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/50">
+    <div
+      className={cn(
+        "group flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/50",
+        isFocused && "bg-primary/10",
+        shouldDim && "opacity-60"
+      )}
+    >
       <button
         className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left"
         onClick={handleEdit}
@@ -149,6 +168,14 @@ const ActorItem = memo(({ actor, onRemove, onUpdate }: ActorItemProps) => {
         </div>
       </button>
       <div className="flex shrink-0 gap-1">
+        <Button
+          className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={handleFocus}
+          size="icon"
+          variant="ghost"
+        >
+          <Target className="h-3 w-3 text-muted-foreground" />
+        </Button>
         <Button
           className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
           onClick={handleEdit}
@@ -240,6 +267,9 @@ interface TermItemProps {
 }
 
 const TermItem = memo(({ term, onRemove, onUpdate }: TermItemProps) => {
+  const setActiveFocus = usePRDStore((state) => state.actions.setActiveFocus);
+  const activeNodeIds = usePRDStore((state) => state.activeNodeIds);
+  const focusMode = usePRDStore((state) => state.focusMode);
   const [isEditing, setIsEditing] = useState(false);
   const [editTerm, setEditTerm] = useState(term.term);
   const [editDefinition, setEditDefinition] = useState(term.definition);
@@ -249,10 +279,15 @@ const TermItem = memo(({ term, onRemove, onUpdate }: TermItemProps) => {
   }, [term.id, onRemove]);
 
   const handleEdit = useCallback(() => {
+    setActiveFocus("glossary", [term.id]);
     setIsEditing(true);
     setEditTerm(term.term);
     setEditDefinition(term.definition);
-  }, [term.term, term.definition]);
+  }, [setActiveFocus, term.definition, term.id, term.term]);
+
+  const handleFocus = useCallback(() => {
+    setActiveFocus("glossary", [term.id]);
+  }, [setActiveFocus, term.id]);
 
   const handleSave = useCallback(() => {
     if (editTerm.trim() && editDefinition.trim()) {
@@ -331,8 +366,17 @@ const TermItem = memo(({ term, onRemove, onUpdate }: TermItemProps) => {
     );
   }
 
+  const isFocused = activeNodeIds.includes(term.id);
+  const shouldDim = focusMode && activeNodeIds.length > 0 && !isFocused;
+
   return (
-    <div className="group flex flex-col gap-0.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50">
+    <div
+      className={cn(
+        "group flex flex-col gap-0.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50",
+        isFocused && "bg-primary/10",
+        shouldDim && "opacity-60"
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <button
           className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left font-medium"
@@ -344,6 +388,14 @@ const TermItem = memo(({ term, onRemove, onUpdate }: TermItemProps) => {
           <span className="break-words">{term.term}</span>
         </button>
         <div className="flex shrink-0 gap-1">
+          <Button
+            className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={handleFocus}
+            size="icon"
+            variant="ghost"
+          >
+            <Target className="h-3 w-3 text-muted-foreground" />
+          </Button>
           <Button
             className="h-6 w-6 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
             onClick={handleEdit}
@@ -442,6 +494,7 @@ export function PRDSidebar() {
     removeTerm,
     updateActor,
     updateTerm,
+    setActiveSection,
   } = usePRDStore((state) => state.actions);
   const prdSections = usePRDStore((state) => state.prd.sections);
 
@@ -454,6 +507,7 @@ export function PRDSidebar() {
       if (!name.trim()) {
         return;
       }
+      setActiveSection("actors");
       addActor({
         description: "",
         name,
@@ -462,7 +516,7 @@ export function PRDSidebar() {
       });
       setIsAddingActor(false);
     },
-    [addActor]
+    [addActor, setActiveSection]
   );
 
   const handleAddTerm = useCallback(
@@ -470,6 +524,7 @@ export function PRDSidebar() {
       if (!name.trim()) {
         return;
       }
+      setActiveSection("glossary");
       addTerm({
         bannedSynonyms: [],
         definition: definition.trim() || "To be defined...",
@@ -477,10 +532,11 @@ export function PRDSidebar() {
       });
       setIsAddingTerm(false);
     },
-    [addTerm]
+    [addTerm, setActiveSection]
   );
 
   const handleScan = useCallback(async () => {
+    setActiveSection("glossary");
     setIsScanning(true);
     try {
       const fullContent = `
@@ -506,7 +562,7 @@ export function PRDSidebar() {
     } finally {
       setIsScanning(false);
     }
-  }, [prdSections, terms, addTerm]);
+  }, [prdSections, terms, addTerm, setActiveSection]);
 
   const toggleAddingActor = useCallback(() => setIsAddingActor(true), []);
   const cancelAddingActor = useCallback(() => setIsAddingActor(false), []);

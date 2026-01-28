@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { type FocusSection } from "@/lib/knowledge";
 import { usePRDStore } from "@/lib/store";
 
 import { CompetitorAnalysis } from "./competitor-analysis";
@@ -120,6 +121,9 @@ export function PRDEditor() {
   const prdData = usePRDStore((state) => state.prd);
   const { updateTLDR, updateTitle, updateBackground } = usePRDStore(
     (state) => state.actions
+  );
+  const setActiveSection = usePRDStore(
+    (state) => state.actions.setActiveSection
   );
 
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
@@ -213,6 +217,25 @@ export function PRDEditor() {
   const handleTitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => updateTitle(e.target.value),
     [updateTitle]
+  );
+
+  const handleTldrFocus = useCallback(() => {
+    setActiveSection("tldr");
+  }, [setActiveSection]);
+
+  const handleSectionChange = useCallback(
+    (value: string) => {
+      const sectionMap: Record<string, FocusSection> = {
+        background: "background",
+        goals: "goals",
+        "market-research": "competitors",
+        milestones: "milestones",
+        requirements: "requirements",
+        tldr: "tldr",
+      };
+      setActiveSection(sectionMap[value] ?? "tldr");
+    },
+    [setActiveSection]
   );
   const handleProblemChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -309,6 +332,7 @@ export function PRDEditor() {
       <Tabs
         className="flex flex-1 flex-col overflow-hidden"
         defaultValue="tldr"
+        onValueChange={handleSectionChange}
       >
         <div className="relative border-b border-border bg-background px-6">
           {/* Left Fade/Scroll Button */}
@@ -395,6 +419,7 @@ export function PRDEditor() {
                   onChange={handleProblemChange}
                   placeholder="What is the single biggest blocker?"
                   value={tldr.problem}
+                  onFocus={handleTldrFocus}
                 />
               </div>
 
@@ -412,6 +437,7 @@ export function PRDEditor() {
                   onChange={handleSolutionChange}
                   placeholder="High-level summary of the fix."
                   value={tldr.solution}
+                  onFocus={handleTldrFocus}
                 />
               </div>
             </TabsContent>
